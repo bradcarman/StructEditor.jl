@@ -40,9 +40,9 @@ const STYLE_CSS = """
     }
 """
 
-make_control!(value::Ref, ::Val{T}, sname::Symbol) where T = error("type $T not supported, add a `StructEditor.make_control!(value::Ref, ::Val{$T}, sname::Symbol)` function to your package.")
+make_control!(value::Ref, ::Type{T}, sname::Symbol) where T = error("type $T not supported, add a `StructEditor.make_control!(value::Ref, ::Type{$T}, sname::Symbol)` function to your package.")
 
-function make_control!(value::Ref, ::Val{Bool}, sname::Symbol)
+function make_control!(value::Ref, ::Type{Bool}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
 
@@ -55,7 +55,7 @@ function make_control!(value::Ref, ::Val{Bool}, sname::Symbol)
     return [checkbox]
 end
 
-function make_control!(value::Ref, ::Union{Val{<:Number},Val{String}}, sname::Symbol)
+function make_control!(value::Ref, ::Union{Type{<:Number},Type{String}}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
 
@@ -68,7 +68,7 @@ function make_control!(value::Ref, ::Union{Val{<:Number},Val{String}}, sname::Sy
     return [y]
 end
 
-function make_control!(value::Ref, ::Val{Date}, sname::Symbol)
+function make_control!(value::Ref, ::Type{Date}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
 
@@ -81,7 +81,7 @@ function make_control!(value::Ref, ::Val{Date}, sname::Symbol)
     return [y]
 end
 
-function make_control!(value::Ref, ::Val{Markdown.MD}, sname::Symbol)
+function make_control!(value::Ref, ::Type{Markdown.MD}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
     
@@ -95,7 +95,7 @@ function make_control!(value::Ref, ::Val{Markdown.MD}, sname::Symbol)
     return [y]
 end
 
-function make_control!(value::Ref, ::Val{<:Vector}, sname::Symbol)
+function make_control!(value::Ref, ::Type{<:Vector}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
 
@@ -139,7 +139,7 @@ function make_form(value::Ref{T}; file="value.json", padding=25, width=500) wher
     form = []
     
     for (sname, ftype) in zip(fieldnames(T), fieldtypes(T))
-        append!(form, make_control!(value, Val(ftype), sname))
+        append!(form, make_control!(value, ftype, sname))
     end
 
 

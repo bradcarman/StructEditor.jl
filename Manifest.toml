@@ -2,7 +2,7 @@
 
 julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "786fe2a80ff587fb03bd935d754666f9e3382c9d"
+project_hash = "b47e774eb36e6b451c02f27a881daa37da172a2b"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "MacroTools"]
@@ -334,9 +334,9 @@ version = "1.11.0"
 
 [[deps.ShoelaceWidgets]]
 deps = ["Bonito", "Dates", "Hyperscript"]
-git-tree-sha1 = "d8c69b65b524881cdf51de951fcd12b3da3d1132"
+path = "../ShoelaceWidgets.jl"
 uuid = "1dc53738-a592-4c0c-95ab-f92b84dc4c89"
-version = "0.8.7"
+version = "0.9.0"
 
 [[deps.SimpleBufferStream]]
 git-tree-sha1 = "f305871d2f381d21527c770d4788c06c097c9bc1"
@@ -360,7 +360,7 @@ version = "1.11.1"
     SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[deps.StructEditor]]
-deps = ["Accessors", "Bonito", "Dates", "Markdown", "ShoelaceWidgets"]
+deps = ["Accessors", "Bonito", "Dates", "JSON", "Markdown", "ShoelaceWidgets", "StructUtils"]
 path = "."
 uuid = "f41bf64d-372c-4047-8f65-4cd74346a5da"
 version = "0.1.0"
