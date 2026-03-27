@@ -1,0 +1,7 @@
+{
+  "pet": {
+    "name": "Ellie",
+    "purrs": false,
+    "type": "Cat"
+  }
+}

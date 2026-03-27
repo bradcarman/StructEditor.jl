@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:juliaio.github.io)",
+      "WebFetch(domain:juliaservices.github.io)",
+      "Bash(curl -s https://raw.githubusercontent.com/JuliaServices/StructUtils.jl/main/src/StructUtils.jl)",
+      "Bash(curl -s https://api.github.com/repos/JuliaServices/StructUtils.jl/git/trees/main?recursive=1)",
+      "Bash(python -c \"import sys,json; [print\\(x[''''path'''']\\) for x in json.load\\(sys.stdin\\)[''''tree'''']]\")",
+      "Bash(curl -s https://api.github.com/repos/JuliaIO/JSON.jl/git/trees/master?recursive=1)",
+      "Bash(curl:*)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(x[''''path'''']\\) for x in data.get\\(''''tree'''',[]\\) if x[''''type'''']==''''blob'''']\")",
+      "Bash(awk 'NR>=1190 && NR<=1320')",
+      "Bash(awk 'NR>=780 && NR<=860')",
+      "Bash(awk 'NR>=130 && NR<=230')",
+      "Bash(awk 'NR>=540 && NR<=620')",
+      "Bash(awk 'NR>=290 && NR<=520')"
+    ]
+  }
+}
