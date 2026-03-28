@@ -1,17 +1,17 @@
 {
-    "num": 1,
-    "date": "2026-03-26",
-    "string": "test",
-    "bool": true,
-    "markdown": "# StructEditor\n\nUse StructEditor to easily create a form that stores and retrieves data!!!\n",
-    "people": [
-        {
-            "name": "person 1",
-            "age": 1
-        },
-        {
-            "name": "person 2",
-            "age": 2
-        }
-    ]
+  "num": 1.0,
+  "date": "2026-03-28",
+  "string": "test",
+  "bool": false,
+  "markdown": "# Header\n",
+  "people": [
+    {
+      "name": "Brad",
+      "age": 1
+    },
+    {
+      "name": "person 2",
+      "age": 2
+    }
+  ]
 }

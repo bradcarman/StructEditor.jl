@@ -20,11 +20,11 @@ end
 file=joinpath(@__DIR__, "All.json")
 
 a = All()
-StructEditor.make_control!(Ref(a), Float64, :num)
-StructEditor.make_control!(Ref(a), Date, :date)
-StructEditor.make_control!(Ref(a), String, :string)
-StructEditor.make_control!(Ref(a), Markdown.MD, :markdown)
-StructEditor.make_control!(Ref(a), Vector{Person}, :people)
+StructEditor.make_control!(Observable(a), Float64, :num)
+StructEditor.make_control!(Observable(a), Date, :date)
+StructEditor.make_control!(Observable(a), String, :string)
+StructEditor.make_control!(Observable(a), Markdown.MD, :markdown)
+StructEditor.make_control!(Observable(a), Vector{Person}, :people)
 
 # create a new file
 editor(All(); file)

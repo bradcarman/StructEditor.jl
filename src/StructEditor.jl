@@ -40,9 +40,9 @@ const STYLE_CSS = """
     }
 """
 
-make_control!(value::Ref, ::Type{T}, sname::Symbol) where T = error("type $T not supported, add a `StructEditor.make_control!(value::Ref, ::Type{$T}, sname::Symbol)` function to your package.")
+make_control!(value::Observable, ::Type{T}, sname::Symbol) where T = error("type $T not supported, add a `StructEditor.make_control!(value::Observable, ::Type{$T}, sname::Symbol)` function to your package.")
 
-function make_control!(value::Ref, ::Type{Bool}, sname::Symbol)
+function make_control!(value::Observable, ::Type{Bool}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
 
@@ -55,7 +55,7 @@ function make_control!(value::Ref, ::Type{Bool}, sname::Symbol)
     return [checkbox]
 end
 
-function make_control!(value::Ref, ::Union{Type{<:Number},Type{String}}, sname::Symbol)
+function make_control!(value::Observable, ::Union{Type{<:Number},Type{String}}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
 
@@ -68,7 +68,7 @@ function make_control!(value::Ref, ::Union{Type{<:Number},Type{String}}, sname::
     return [y]
 end
 
-function make_control!(value::Ref, ::Type{Date}, sname::Symbol)
+function make_control!(value::Observable, ::Type{Date}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
 
@@ -81,7 +81,7 @@ function make_control!(value::Ref, ::Type{Date}, sname::Symbol)
     return [y]
 end
 
-function make_control!(value::Ref, ::Type{Markdown.MD}, sname::Symbol)
+function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
     
@@ -95,7 +95,7 @@ function make_control!(value::Ref, ::Type{Markdown.MD}, sname::Symbol)
     return [y]
 end
 
-function make_control!(value::Ref, ::Type{<:Vector}, sname::Symbol)
+function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
 
@@ -134,7 +134,7 @@ end
 
 
 
-function make_form(value::Ref{T}; file="value.json", padding=25, width=500) where T
+function make_form(value::Observable{T}; file="value.json", padding=25, width=500) where T
 
     form = []
     
@@ -182,7 +182,7 @@ end
 
 function make_form(file::String, T::Type)
     value = JSON.parsefile(file, T)
-    return make_form(Ref(value); file)
+    return make_form(Observable(value); file)
 end
 
 @enum Mode vscode browser
@@ -194,7 +194,7 @@ end
 
 function editor(value::T; file="value.json", mode=vscode, kwargs...) where T
 
-    form = make_form(Ref(value); file, kwargs...)
+    form = make_form(Observable(value); file, kwargs...)
 
     app = App() do session
         DOM.html(

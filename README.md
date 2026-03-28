@@ -50,7 +50,9 @@ editor(All(); file)
 editor(file, All; mode = StructEditor.browser)
 ```
 
-For a more advanced example showing how to handle `abstract` types, see "examples/pets.jl".
+For a more advanced examples: 
+- how to handle `abstract` types, see "examples/pets.jl"
+- how to handle manipulation of controls based on set values, see "examples/toggle.jl"
 
 
 ## API
