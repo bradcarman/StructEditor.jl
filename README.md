@@ -2,6 +2,11 @@
 
 StructEditor.jl generates interactive web-based forms for editing Julia structs. It automatically maps struct fields to appropriate UI controls (using [ShoelaceWidgets.jl](https://bradcarman.github.io/ShoelaceWidgets.jl/dev/), and saves the result to a JSON file.
 
+## TODO
+- Vector display
+- Vector add
+
+
 ## Features
 
 - Automatically generates form controls based on field types:

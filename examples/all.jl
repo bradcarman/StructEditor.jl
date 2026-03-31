@@ -2,7 +2,6 @@ using StructEditor
 using Dates
 using Markdown
 
-
 @kwdef struct Person
     name::String = "name"
     age::Int = 0
@@ -17,17 +16,18 @@ end
     people::Vector{Person} = [Person("person 1", 1), Person("person 2", 2)]
 end
 
+
 file=joinpath(@__DIR__, "All.json")
 
-a = All()
-StructEditor.make_control!(Observable(a), Float64, :num)
-StructEditor.make_control!(Observable(a), Date, :date)
-StructEditor.make_control!(Observable(a), String, :string)
-StructEditor.make_control!(Observable(a), Markdown.MD, :markdown)
-StructEditor.make_control!(Observable(a), Vector{Person}, :people)
+# a = All()
+# StructEditor.make_control!(Observable(a), Float64, :num)
+# StructEditor.make_control!(Observable(a), Date, :date)
+# StructEditor.make_control!(Observable(a), String, :string)
+# StructEditor.make_control!(Observable(a), Markdown.MD, :markdown)
+# StructEditor.make_control!(Observable(a), Vector{Person}, :people)
 
 # create a new file
 editor(All(); file)
 
 # load an existing file
-editor(file, All, mode = StructEditor.browser)
+# editor(file, All, mode = StructEditor.browser)

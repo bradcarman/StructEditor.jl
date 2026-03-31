@@ -1,17 +1,17 @@
 {
   "num": 1.0,
-  "date": "2026-03-28",
+  "date": "2026-03-30",
   "string": "test",
-  "bool": false,
+  "bool": true,
   "markdown": "# Header\n",
   "people": [
     {
-      "name": "Brad",
+      "name": "person 1",
       "age": 1
     },
     {
-      "name": "person 2",
-      "age": 2
+      "name": "Brad",
+      "age": 45
     }
   ]
 }

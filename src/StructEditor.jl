@@ -20,7 +20,7 @@ const STYLE_CSS = """
     sl-textarea,
     sl-tag,
     sl-input {
-        margin: 2px;
+        margin: 10px 2px;
     }
 
     sl-tree {
@@ -38,15 +38,33 @@ const STYLE_CSS = """
         margin-bottom: var(--sl-spacing-3x-small);
         cursor: default;
     }
+
+    .shoelace-help {
+        /* Default text color for help text */
+        color: var(--sl-input-help-text-color); 
+        
+        /* Use the size that matches your form control (medium is default) */
+        font-size: var(--sl-input-help-text-font-size-medium); 
+        
+        /* Add a tiny bit of spacing to separate it from the input */
+        margin-top: var(--sl-spacing-3x-small); 
+        
+        /* Standard Shoelace typography adjustments */
+        font-family: var(--sl-font-sans);
+        font-weight: var(--sl-font-weight-normal);
+        line-height: var(--sl-line-height-normal);
+    }
 """
 
+help(::Type, ::Val) = ""
 make_control!(value::Observable, ::Type{T}, sname::Symbol) where T = error("type $T not supported, add a `StructEditor.make_control!(value::Observable, ::Type{$T}, sname::Symbol)` function to your package.")
 
 function make_control!(value::Observable, ::Type{Bool}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
+    h = help(typeof(value[]), Val(sname) )
 
-    checkbox = SLCheckbox(name; checked=val)
+    checkbox = SLCheckbox(name; checked=val, help=h)
     on(checkbox.value) do x
         # println(":: checkbox ($name): $x")
         value[] = set(value[], PropertyLens(sname), x)
@@ -58,8 +76,9 @@ end
 function make_control!(value::Observable, ::Union{Type{<:Number},Type{String}}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
+    h = help(typeof(value[]), Val(sname) )
 
-    y = SLInput(val; label=name)
+    y = SLInput(val; label=name, help=h)
     on(y.value) do x
         # println(":: y ($name): $x")
         value[] = set(value[], PropertyLens(sname), x)
@@ -68,11 +87,26 @@ function make_control!(value::Observable, ::Union{Type{<:Number},Type{String}}, 
     return [y]
 end
 
+function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol)
+    name = string(sname)
+    val = getproperty(value[], sname)
+    h = help(typeof(value[]), Val(sname) )
+
+    y = SLInput(string(val); label=name, help=h)
+    on(y.value) do x
+        # println(":: y ($name): $x")
+        value[] = set(value[], PropertyLens(sname), Symbol(x))
+    end
+
+    return [y]
+end
+
 function make_control!(value::Observable, ::Type{Date}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
+    h = help(typeof(value[]), Val(sname) )
 
-    y = SLInput(val; label=name)
+    y = SLInput(val; label=name, help=h)
     on(y.value) do x
         # println(":: y ($name): $x type $(typeof(x))")
         value[] = set(value[], PropertyLens(sname), Date(x))
@@ -84,9 +118,10 @@ end
 function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
+    h = help(typeof(value[]), Val(sname) )
     
     sval = Markdown.plain(val)
-    y = SLTextarea(sval; label=name, rows=max(5, min(count('\n', sval) + 1, 20)))
+    y = SLTextarea(sval; label=name, rows=max(5, min(count('\n', sval) + 1, 20)), help=h)
     on(y.value) do x
         # println(":: y ($name): $x type $(typeof(x))")
         value[] = set(value[], PropertyLens(sname), Markdown.parse(x))
@@ -98,37 +133,91 @@ end
 function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
+    T = eltype(val)
+    h = help(typeof(value[]), Val(sname))
 
-    dialogs = []
+    i=1 
+    ref = Observable(val[i])
+    
+    dialog = SLDialog(make_form(ref; file=""); label=string(T))
 
-    items = SLTreeItem[]
+
+
+    items = SLListItem[]
     
     for (i,item) in enumerate(val)
-        label = "$i : $(typeof(item))"
-        push!(items, SLTreeItem(label))
-        ref = Ref(val[i])
-        dialog = SLDialog(make_form(ref; file=""); label)
+        label = "$item"
+        push!(items, SLListItem(label))
+       
+    end
+    # label = DOM.label(name; class="shoelace-label")
+    y = SLList(items; label=name, help=h)
 
-        on(dialog.open) do o
-            if !o
-                # update item...
+
+    Main.x_[] = y
+
+    on(dialog.open) do o
+        if o # dialog opening
+            i = y.index    
+            if !isnothing(i) && (i > 0)
+                ref = Observable(val[i])
+                dialog.value[] = make_form(ref; file="")
+            else
+                dialog.value[] = DOM.div("error")
+            end
+        else # dialog closing
+            # update item...
+            i = y.index    
+            if !isnothing(i) && (i > 0)
                 getproperty(value[], sname)[i] = ref[]
+                insert!(y, i, ShoelaceWidgets.SLListItem("$(ref[])"))
+                popat!(y, i+1)
+                y.index = i
             end
         end
-
-        push!(dialogs, dialog)
     end
-    label = DOM.label(name; class="shoelace-label")
-    y = SLTree(items)
-    on(y.value) do x
-        # println(":: y ($name): $x type $(typeof(x))")
-        i = tryparse(Int, strip(split(x, ':')[1]))
-        if !isnothing(i)
-            dialogs[i].open[] = true
+
+    # add an item to the list
+    add = SLButton("add"; variant="text", size="small")
+    on(add.value) do x
+        item = T() #<-- type must have a default constructor
+        push!(val, item) 
+        push!(y, ShoelaceWidgets.SLListItem("$item"))
+        y.index = length(val)
+    end
+
+    edit = SLButton("edit"; variant="text", size="small", disabled=true)
+    on(edit.value) do x
+        i = y.index    
+        if !isnothing(i) && (i > 0)
+            dialog.open[] = true
         end
     end
 
-    return [label, y, dialogs...]
+    delete = SLButton("delete"; variant="text", size="small", disabled=true)
+    on(delete.value) do x
+        i = y.index    
+        if !isnothing(i) && (i > 0)
+            popat!(val, i)
+            popat!(y, i)
+            notify(y.value)
+        end
+    end
+
+    # selection changed, open editor
+    on(y.value) do x
+        @show "y.index" y.index isnothing(y.index)
+        i = y.index
+        if !isnothing(i) && (i > 0)
+            delete.disabled[] = false
+            edit.disabled[] = false
+        else
+            delete.disabled[] = true
+            edit.disabled[] = true
+        end
+    end
+
+    return [y, dialog, DOM.div(add, edit, delete)]
 end
 
 

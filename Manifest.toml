@@ -336,7 +336,7 @@ version = "1.11.0"
 deps = ["Bonito", "Dates", "Hyperscript"]
 path = "../ShoelaceWidgets.jl"
 uuid = "1dc53738-a592-4c0c-95ab-f92b84dc4c89"
-version = "0.9.0"
+version = "0.9.2"
 
 [[deps.SimpleBufferStream]]
 git-tree-sha1 = "f305871d2f381d21527c770d4788c06c097c9bc1"
@@ -363,7 +363,7 @@ version = "1.11.1"
 deps = ["Accessors", "Bonito", "Dates", "JSON", "Markdown", "ShoelaceWidgets", "StructUtils"]
 path = "."
 uuid = "f41bf64d-372c-4047-8f65-4cd74346a5da"
-version = "0.1.0"
+version = "0.3.1"
 
 [[deps.StructUtils]]
 deps = ["Dates", "UUIDs"]
