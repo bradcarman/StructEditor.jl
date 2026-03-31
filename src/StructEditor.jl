@@ -153,9 +153,6 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     # label = DOM.label(name; class="shoelace-label")
     y = SLList(items; label=name, help=h)
 
-
-    Main.x_[] = y
-
     on(dialog.open) do o
         if o # dialog opening
             i = y.index    
