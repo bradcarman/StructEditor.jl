@@ -11,7 +11,9 @@ StructUtils.structlike(::StructUtils.StructStyle, ::Type{Markdown.MD}) = false
 StructUtils.lower(md::Markdown.MD) = Markdown.plain(md)
 StructUtils.lift(::Type{Markdown.MD}, s::AbstractString) = Markdown.parse(s)
 
-export editor
+export editor, AbstractStructEditor
+
+abstract type AbstractStructEditor end
 
 const STYLE_CSS = """
     sl-button,
@@ -215,6 +217,20 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     end
 
     return [y, dialog, DOM.div(add, edit, delete)]
+end
+
+function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: AbstractStructEditor
+   name = string(sname)
+   val = getproperty(value[], sname)
+   ref = Observable(val) 
+   label = DOM.div(name; class="shoelace-label")
+   y = sl_card(StructEditor.make_form(ref; file=""))
+
+   on(ref) do x
+        value[] = set(value[], PropertyLens(sname), ref[])
+   end
+
+   return [label, DOM.div(y)]
 end
 
 

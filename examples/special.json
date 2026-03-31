@@ -1,0 +1,14 @@
+{
+  "num": 1.0,
+  "date": "2026-03-31",
+  "string": "test",
+  "bool": true,
+  "markdown": "# Header\n",
+  "person": {
+    "name": "Brad",
+    "age": 45,
+    "kid": {
+      "name": "Ellie"
+    }
+  }
+}
