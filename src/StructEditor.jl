@@ -139,9 +139,9 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     h = help(typeof(value[]), Val(sname))
 
     i=1 
-    ref = Observable(val[i])
+    ref = Observable{T}()
     
-    dialog = SLDialog(make_form(ref; file=""); label=string(T))
+    dialog = SLDialog(DOM.div("---"); label=string(T))
 
 
 
@@ -205,7 +205,6 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
 
     # selection changed, open editor
     on(y.value) do x
-        @show "y.index" y.index isnothing(y.index)
         i = y.index
         if !isnothing(i) && (i > 0)
             delete.disabled[] = false
@@ -234,14 +233,16 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol)
 end
 
 
-
+skip_field(parent::Type, child::Val) = false
 
 function make_form(value::Observable{T}; file="value.json", padding=25, width=500) where T
 
     form = []
     
     for (sname, ftype) in zip(fieldnames(T), fieldtypes(T))
-        append!(form, make_control!(value, ftype, sname))
+        if !skip_field(T, Val(sname))
+            append!(form, make_control!(value, ftype, sname))
+        end
     end
 
 

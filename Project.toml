@@ -1,6 +1,6 @@
 name = "StructEditor"
 uuid = "f41bf64d-372c-4047-8f65-4cd74346a5da"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Brad Carman <bradleygcarman@outlook.com>"]
 
 [deps]

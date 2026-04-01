@@ -14,6 +14,7 @@ end
     bool::Bool = true
     markdown::Markdown.MD = md"# Header"
     people::Vector{Person} = [Person("person 1", 1), Person("person 2", 2)]
+    skip::String = "skip me"
 end
 
 
@@ -25,6 +26,8 @@ file=joinpath(@__DIR__, "All.json")
 # StructEditor.make_control!(Observable(a), String, :string)
 # StructEditor.make_control!(Observable(a), Markdown.MD, :markdown)
 # StructEditor.make_control!(Observable(a), Vector{Person}, :people)
+
+StructEditor.skip_field(::Type{All}, ::Val{:skip}) = true
 
 # create a new file
 editor(All(); file)

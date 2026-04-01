@@ -37,7 +37,7 @@ file=joinpath(@__DIR__, "pets.json")
 # end
 # value = JSON.parsefile(file, Household)
 
-function StructEditor.make_control!(value::Ref, ::Type{T}, sname::Symbol) where T <: Animal
+function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: Animal
     name = string(sname)
     val = getproperty(value[], sname)
     local ref::Ref
