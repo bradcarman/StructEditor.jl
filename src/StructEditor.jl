@@ -15,24 +15,15 @@ export editor, AbstractStructEditor
 
 abstract type AbstractStructEditor end
 
-#=
-    sl-button,
-    sl-select,
-    sl-checkbox,
-    sl-textarea,
-    sl-tag,
-    sl-input {
-        margin: 10px 2px;
-    }
-
-    sl-tree {
-        margin: 2px;
-        border: 1px solid lightgray;
-    }
-=#
-
 const STYLE_CSS = """
 
+    .centered {
+        width: 85vw;
+        margin-inline: auto; /* Shorthand for margin-left: auto and margin-right: auto */
+        
+        /* Optional: Adds a "safety" so it doesn't get too wide on massive screens */
+        max-width: 1200px; 
+    }
 
     .shoelace-label {
         /* Matches sl-input label styling */
@@ -145,7 +136,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     i=1 
     ref = Observable{T}()
     
-    dialog = SLDialog(DOM.div("---"); label=string(T))
+    dialog = SLDialog(DOM.div("---"); label=string(T), style="--width: 75vw;")
 
 
 
@@ -249,7 +240,7 @@ cell(x...) = DOM.div(x...;
                     """
                     )
 
-function make_form(value::Observable{T}; file="value.json", padding=25, width=500) where T
+function make_form(value::Observable{T}; file="value.json") where T
 
     form = []
     
@@ -292,9 +283,9 @@ function make_form(value::Observable{T}; file="value.json", padding=25, width=50
         
         # end
 
-        return DOM.div(form..., DOM.hr(), save; style="padding:$(padding)px; max-width:$(width)px")
+        return DOM.div(form..., DOM.hr(), save; class="centered")
     else
-        return DOM.div(form...)
+        return DOM.div(form...; class="centered")
     end
 end
 

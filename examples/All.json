@@ -1,6 +1,6 @@
 {
   "num": 1.0,
-  "date": "2026-03-30",
+  "date": "2026-04-02",
   "string": "test",
   "bool": true,
   "markdown": "# Header\n",
@@ -10,8 +10,9 @@
       "age": 1
     },
     {
-      "name": "Brad",
-      "age": 45
+      "name": "person 2",
+      "age": 2
     }
-  ]
+  ],
+  "skip": "skip me"
 }

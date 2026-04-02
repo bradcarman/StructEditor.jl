@@ -1,6 +1,6 @@
 name = "StructEditor"
 uuid = "f41bf64d-372c-4047-8f65-4cd74346a5da"
-version = "0.3.4"
+version = "0.3.5"
 authors = ["Brad Carman <bradleygcarman@outlook.com>"]
 
 [deps]
@@ -18,7 +18,7 @@ Bonito = "4.2.0"
 Dates = "1.11.0"
 JSON = "1.4.0"
 Markdown = "1.11.0"
-ShoelaceWidgets = "0.10.0"
+ShoelaceWidgets = "0.10.3"
 StructUtils = "2.7.1"
 julia = "1"
 
