@@ -15,7 +15,7 @@ export editor, AbstractStructEditor
 
 abstract type AbstractStructEditor end
 
-const STYLE_CSS = """
+#=
     sl-button,
     sl-select,
     sl-checkbox,
@@ -29,6 +29,10 @@ const STYLE_CSS = """
         margin: 2px;
         border: 1px solid lightgray;
     }
+=#
+
+const STYLE_CSS = """
+
 
     .shoelace-label {
         /* Matches sl-input label styling */
@@ -234,6 +238,16 @@ end
 
 
 skip_field(parent::Type, child::Val) = false
+cell(x...) = DOM.div(x...; 
+                    style="""
+                        width:100%; 
+                        border-left: solid 1px var(--sl-color-warning-400); 
+                        margin: 10px 2px;
+                        background-color: var(--sl-color-neutral-50);
+                        padding: 4px;
+
+                    """
+                    )
 
 function make_form(value::Observable{T}; file="value.json", padding=25, width=500) where T
 
@@ -241,7 +255,8 @@ function make_form(value::Observable{T}; file="value.json", padding=25, width=50
     
     for (sname, ftype) in zip(fieldnames(T), fieldtypes(T))
         if !skip_field(T, Val(sname))
-            append!(form, make_control!(value, ftype, sname))
+            parts = make_control!(value, ftype, sname)
+            push!(form, cell(parts...))
         end
     end
 
