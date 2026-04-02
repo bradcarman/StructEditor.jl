@@ -150,17 +150,19 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     # label = DOM.label(name; class="shoelace-label")
     y = SLList(items; label=name, help=h)
 
+    updating = false
     on(dialog.open) do o
         if o # dialog opening
             i = y.index    
             if !isnothing(i) && (i > 0)
                 ref = Observable(val[i])
-                dialog.value[] = make_form(ref; file="")
+                dialog.value[] = make_form(ref; file="", class="")
             else
                 dialog.value[] = DOM.div("error")
             end
         else # dialog closing
             # update item...
+            updating = true
             i = y.index    
             if !isnothing(i) && (i > 0)
                 getproperty(value[], sname)[i] = ref[]
@@ -168,6 +170,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
                 popat!(y, i+1)
                 y.index = i
             end
+            updating = false
         end
     end
 
@@ -200,13 +203,15 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
 
     # selection changed, open editor
     on(y.value) do x
-        i = y.index
-        if !isnothing(i) && (i > 0)
-            delete.disabled[] = false
-            edit.disabled[] = false
-        else
-            delete.disabled[] = true
-            edit.disabled[] = true
+        if !updating
+            i = y.index
+            if !isnothing(i) && (i > 0)
+                delete.disabled[] = false
+                edit.disabled[] = false
+            else
+                delete.disabled[] = true
+                edit.disabled[] = true
+            end
         end
     end
 
@@ -240,7 +245,7 @@ cell(x...) = DOM.div(x...;
                     """
                     )
 
-function make_form(value::Observable{T}; file="value.json") where T
+function make_form(value::Observable{T}; file="value.json", class="centered") where T
 
     form = []
     
@@ -283,9 +288,9 @@ function make_form(value::Observable{T}; file="value.json") where T
         
         # end
 
-        return DOM.div(form..., DOM.hr(), save; class="centered")
+        return DOM.div(form..., DOM.hr(), save; class)
     else
-        return DOM.div(form...; class="centered")
+        return DOM.div(form...; class)
     end
 end
 
