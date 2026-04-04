@@ -127,6 +127,20 @@ function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol)
     return [y]
 end
 
+function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol) where T <: Number
+    name = string(sname)
+    val = getproperty(value[], sname)
+    h = help(typeof(value[]), Val(sname) )
+
+    y = SLInput(join(string.(val),','); label=name, help=h)
+    on(y.value) do data
+        # println(":: y ($name): $x")
+        value[] = set(value[], PropertyLens(sname), map(x->parse(T, x), split(data,',')))
+    end
+
+    return [y]
+end
+
 function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
@@ -223,7 +237,7 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol)
    val = getproperty(value[], sname)
    ref = Observable(val) 
    label = DOM.div(name; class="shoelace-label")
-   y = sl_card(StructEditor.make_form(ref; file=""))
+   y = sl_card(StructEditor.make_form(ref; file="", class=""); style="width:100%;")
 
    on(ref) do x
         value[] = set(value[], PropertyLens(sname), ref[])

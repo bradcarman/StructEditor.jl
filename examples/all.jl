@@ -14,6 +14,7 @@ end
     bool::Bool = true
     markdown::Markdown.MD = md"# Header"
     people::Vector{Person} = [Person("person 1", 1), Person("person 2", 2)]
+    vec::Vector{Int} = [1,2,3,4]
     skip::String = "skip me"
 end
 
