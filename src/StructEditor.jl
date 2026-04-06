@@ -170,7 +170,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
             i = y.index    
             if !isnothing(i) && (i > 0)
                 ref = Observable(val[i])
-                dialog.value[] = make_form(ref; file="", class="", container=DOM.div)
+                dialog.value[] = make_form(ref; file="", class="")
             else
                 dialog.value[] = DOM.div("error")
             end
@@ -182,6 +182,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
                 getproperty(value[], sname)[i] = ref[]
                 insert!(y, i, ShoelaceWidgets.SLListItem("$(ref[])"))
                 popat!(y, i+1)
+                notify(value) # also notify the parent that the list changed
                 y.index = i
             end
             updating = false
