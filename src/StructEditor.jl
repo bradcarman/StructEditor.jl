@@ -170,7 +170,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
             i = y.index    
             if !isnothing(i) && (i > 0)
                 ref = Observable(val[i])
-                dialog.value[] = make_form(ref; file="", class="")
+                dialog.value[] = make_form(ref; file="", class="", container=DOM.div)
             else
                 dialog.value[] = DOM.div("error")
             end
@@ -237,7 +237,7 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol)
    val = getproperty(value[], sname)
    ref = Observable(val) 
    label = DOM.div(name; class="shoelace-label")
-   y = sl_card(StructEditor.make_form(ref; file="", class=""); style="width:100%;")
+   y = sl_card(StructEditor.make_form(ref; file="", class="", container=DOM.div); style="width:100%;")
 
    on(ref) do x
         value[] = set(value[], PropertyLens(sname), ref[])
@@ -246,27 +246,25 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol)
    return [label, DOM.div(y)]
 end
 
-
+# background-color: var(--sl-color-neutral-50);
 skip_field(parent::Type, child::Val) = false
 cell(x...) = DOM.div(x...; 
                     style="""
                         width:100%; 
-                        border-left: solid 1px var(--sl-color-warning-400); 
-                        margin: 10px 2px;
-                        background-color: var(--sl-color-neutral-50);
+                        border-left: solid 4px var(--sl-color-neutral-200); 
+                        margin: 20px 2px;
                         padding: 4px;
-
                     """
                     )
 
-function make_form(value::Observable{T}; file="value.json", class="centered") where T
+function make_form(value::Observable{T}; file="value.json", class="centered", container=cell) where T
 
     form = []
     
     for (sname, ftype) in zip(fieldnames(T), fieldtypes(T))
         if !skip_field(T, Val(sname))
             parts = make_control!(value, ftype, sname)
-            push!(form, cell(parts...))
+            push!(form, container(parts...))
         end
     end
 
