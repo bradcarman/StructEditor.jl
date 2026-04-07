@@ -319,7 +319,7 @@ function editor(file::String, T::Type; mode=vscode, kwargs...)
     return editor(value; file, mode, kwargs...)
 end
 
-function editor(value::T; file="value.json", mode=vscode, server = Bonito.Server(app, "0.0.0.0", 8080), path="/", kwargs...) where T
+function editor(value::T; file="value.json", mode=vscode, server = nothing, path="/", kwargs...) where T
 
     form = make_form(Observable(value); file, kwargs...)
 
@@ -335,11 +335,16 @@ function editor(value::T; file="value.json", mode=vscode, server = Bonito.Server
         )
     end
 
-    route!(server, path => app);
+    if !isnothing(server)
+        route!(server, path => app);
+    end
 
     if mode == vscode
         return app
-    elseif mode == browser                                                                                                                          
+    elseif mode == browser 
+        if isnothing(server)
+            server = Bonito.Server(app, "0.0.0.0", 8080)   
+        end                                                                                                                      
         Bonito.HTTPServer.openurl(Bonito.HTTPServer.local_url(server, path))         
         return nothing
     elseif mode == online
