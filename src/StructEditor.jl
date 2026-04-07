@@ -312,14 +312,14 @@ function make_form(file::String, T::Type)
     return make_form(Observable(value); file)
 end
 
-@enum Mode vscode browser
+@enum Mode vscode browser online quite
 
 function editor(file::String, T::Type; mode=vscode, kwargs...)
     value = JSON.parsefile(file, T)
     return editor(value; file, mode, kwargs...)
 end
 
-function editor(value::T; file="value.json", mode=vscode, kwargs...) where T
+function editor(value::T; file="value.json", mode=vscode, server = Bonito.Server(app, "0.0.0.0", 8080), path="/", kwargs...) where T
 
     form = make_form(Observable(value); file, kwargs...)
 
@@ -335,11 +335,17 @@ function editor(value::T; file="value.json", mode=vscode, kwargs...) where T
         )
     end
 
+    route!(server, path => app);
+
     if mode == vscode
         return app
-    elseif mode == browser
-        server = Bonito.Server(app, "0.0.0.0", 8080)                                                                                                                             
-        Bonito.HTTPServer.openurl(Bonito.HTTPServer.local_url(server, ""))         
+    elseif mode == browser                                                                                                                          
+        Bonito.HTTPServer.openurl(Bonito.HTTPServer.local_url(server, path))         
+        return nothing
+    elseif mode == online
+        Bonito.HTTPServer.openurl(Bonito.HTTPServer.online_url(server, path))         
+        return nothing
+    elseif mode == quite
         return nothing
     end
 
