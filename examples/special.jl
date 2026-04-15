@@ -1,6 +1,8 @@
 using StructEditor
 using Bonito
 using Accessors
+using Markdown
+using Dates
 
 # use AbstractStructEditor type to automatical include in the editor
 @kwdef struct Child <: AbstractStructEditor

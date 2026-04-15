@@ -135,7 +135,12 @@ function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol) wher
     y = SLInput(join(string.(val),','); label=name, help=h)
     on(y.value) do data
         # println(":: y ($name): $x")
-        value[] = set(value[], PropertyLens(sname), map(x->parse(T, x), split(data,',')))
+        value[] = if isempty(data)
+            set(value[], PropertyLens(sname), T[])
+        else
+            set(value[], PropertyLens(sname), map(x->parse(T, x), split(data,',')))
+        end
+        
     end
 
     return [y]
@@ -261,7 +266,6 @@ cell(x...) = DOM.div(x...;
 function make_form(value::Observable{T}; file="value.json", class="centered", container=cell) where T
 
     form = []
-    
     for (sname, ftype) in zip(fieldnames(T), fieldtypes(T))
         if !skip_field(T, Val(sname))
             parts = make_control!(value, ftype, sname)
@@ -324,6 +328,7 @@ function editor(value::T; file="value.json", mode=vscode, server = nothing, path
     form = make_form(Observable(value); file, kwargs...)
 
     app = App() do session
+
         DOM.html(
             DOM.head(
                 get_shoelace()...,
@@ -348,8 +353,8 @@ function editor(value::T; file="value.json", mode=vscode, server = nothing, path
         Bonito.HTTPServer.openurl(Bonito.HTTPServer.local_url(server, path))         
         return nothing
     elseif mode == online
-        Bonito.HTTPServer.openurl(Bonito.HTTPServer.online_url(server, path))         
-        return nothing
+        url = Bonito.HTTPServer.online_url(server, path)
+        return url
     elseif mode == quite
         return nothing
     end
