@@ -11,9 +11,7 @@ StructUtils.structlike(::StructUtils.StructStyle, ::Type{Markdown.MD}) = false
 StructUtils.lower(md::Markdown.MD) = Markdown.plain(md)
 StructUtils.lift(::Type{Markdown.MD}, s::AbstractString) = Markdown.parse(s)
 
-export editor, AbstractStructEditor
-
-abstract type AbstractStructEditor end
+export editor
 
 const STYLE_CSS = """
 
@@ -54,7 +52,6 @@ const STYLE_CSS = """
 """
 
 help(::Type, ::Val) = ""
-make_control!(value::Observable, ::Type{T}, sname::Symbol) where T = error("type $T not supported, add a `StructEditor.make_control!(value::Observable, ::Type{$T}, sname::Symbol)` function to your package.")
 
 function make_control!(value::Observable, ::Type{Bool}, sname::Symbol)
     name = string(sname)
@@ -238,18 +235,22 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     return [y, dialog, DOM.div(add, edit, delete)]
 end
 
-function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: AbstractStructEditor
-   name = string(sname)
-   val = getproperty(value[], sname)
-   ref = Observable(val) 
-   label = DOM.div(name; class="shoelace-label")
-   y = sl_card(StructEditor.make_form(ref; file="", class="", container=DOM.div); style="width:100%;")
+function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T
+    if length(fieldnames(T)) > 0
+        name = string(sname)
+        val = getproperty(value[], sname)
+        ref = Observable(val) 
+        label = DOM.div(name; class="shoelace-label")
+        y = sl_card(make_form(ref; file="", class="", container=DOM.div); style="width:100%;")
 
-   on(ref) do x
-        value[] = set(value[], PropertyLens(sname), ref[])
-   end
+        on(ref) do x
+                value[] = set(value[], PropertyLens(sname), ref[])
+        end
 
-   return [label, DOM.div(y)]
+        return [label, DOM.div(y)]
+    else
+        error("type $T not supported, add a `StructEditor.make_control!(value::Observable, ::Type{$T}, sname::Symbol)` function to your package.")
+    end
 end
 
 # background-color: var(--sl-color-neutral-50);

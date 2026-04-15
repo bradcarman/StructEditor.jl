@@ -4,25 +4,25 @@ using Accessors
 using Markdown
 using Dates
 
-# use AbstractStructEditor type to automatical include in the editor
-@kwdef struct Child <: AbstractStructEditor
+
+@kwdef struct Child
     name::String = "name"
 end
 
-# use AbstractStructEditor type to automatical include in the editor
-@kwdef struct Person <: AbstractStructEditor
+
+@kwdef struct Person
     name::String = "name"
     age::Int = 0
-    kid::Child # this type is an AbstractStructEditor type, will automatically be included in the editor
+    kid::Child # this type has fields, will automatically be included in an editor card
 end
 
-@kwdef struct Special
+@kwdef struct Special 
     num::Float64 = 1.0
     date::Date = Date(now())
     string::String = "test"
     bool::Bool = true
     markdown::Markdown.MD = md"# Header"
-    person::Person = Person("person 1", 1, Child("kid")) # this type is an AbstractStructEditor type, will automatically be included in the editor
+    person::Person = Person("person 1", 1, Child("kid")) # this type has fields, will automatically be included in an editor card
 end
 
 
