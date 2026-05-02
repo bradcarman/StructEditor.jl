@@ -235,8 +235,25 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
     return [y, dialog, DOM.div(add, edit, delete)]
 end
 
+function iscomposite(T::Type)
+    n = 0
+    try
+        n = length(fieldnames(T))
+    catch err
+        if err isa MethodError
+            # OK, likely something like MethodError: no method matching fieldnames(::Type{Union{Nothing, String}})
+            # not a composite type
+            # n = 0
+        else
+            rethrow(err)
+        end
+    end
+
+    return n > 0
+end
+
 function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T
-    if length(fieldnames(T)) > 0
+    if iscomposite(T) > 0
         name = string(sname)
         val = getproperty(value[], sname)
         ref = Observable(val) 
@@ -267,9 +284,20 @@ cell(x...) = DOM.div(x...;
 function make_form(value::Observable{T}; file="value.json", class="centered", container=cell) where T
 
     form = []
-    for (sname, ftype) in zip(fieldnames(T), fieldtypes(T))
-        if !skip_field(T, Val(sname))
-            parts = make_control!(value, ftype, sname)
+
+    pnames = propertynames(value[])
+    
+    
+    for name in pnames
+        if !skip_field(T, Val(name))
+
+            ftype = if hasfield(T, name)
+                fieldtype(T, name)
+            else
+                typeof(getproperty(value[], name))
+            end
+
+            parts = make_control!(value, ftype, name)
             push!(form, container(parts...))
         end
     end
