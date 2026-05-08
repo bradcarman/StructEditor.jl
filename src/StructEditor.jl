@@ -99,7 +99,7 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: N
     return [y]
 end
 
-function make_control!(value::Observable, ::String, sname::Symbol)
+function make_control!(value::Observable, ::Type{String}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
