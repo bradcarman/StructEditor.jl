@@ -61,13 +61,45 @@ function make_control!(value::Observable, ::Type{Bool}, sname::Symbol)
     checkbox = SLCheckbox(name; checked=val, help=h)
     on(checkbox.value) do x
         # println(":: checkbox ($name): $x")
-        value[] = set(value[], PropertyLens(sname), x)
+        if ismutable(value[])
+            setproperty!(value[], sname, x)
+        else
+            value[] = set(value[], PropertyLens(sname), x)
+        end
     end
 
     return [checkbox]
 end
 
-function make_control!(value::Observable, ::Union{Type{<:Number},Type{String}}, sname::Symbol)
+function make_control!(value::Observable, ::Type{Missing}, sname::Symbol)
+    name = string(sname)
+    val = getproperty(value[], sname)
+    h = help(typeof(value[]), Val(sname) )
+
+    x = SLInput("missing"; label=name, help=h, disabled=true)
+
+    return [x]
+end
+
+function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: Number
+    name = string(sname)
+    val = getproperty(value[], sname)
+    h = help(typeof(value[]), Val(sname) )
+    
+    y = SLInput(val; label=name, help=h)
+    on(y.value) do x
+        # println(":: y ($name): $x")
+        if ismutable(value[])
+            setproperty!(value[], sname, T(x))
+        else
+            value[] = set(value[], PropertyLens(sname), T(x))
+        end
+    end
+
+    return [y]
+end
+
+function make_control!(value::Observable, ::String, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -75,7 +107,11 @@ function make_control!(value::Observable, ::Union{Type{<:Number},Type{String}}, 
     y = SLInput(val; label=name, help=h)
     on(y.value) do x
         # println(":: y ($name): $x")
-        value[] = set(value[], PropertyLens(sname), x)
+        if ismutable(value[])
+            setproperty!(value[], sname, x)
+        else
+            value[] = set(value[], PropertyLens(sname), x)
+        end
     end
 
     return [y]
@@ -89,7 +125,11 @@ function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol)
     y = SLInput(string(val); label=name, help=h)
     on(y.value) do x
         # println(":: y ($name): $x")
-        value[] = set(value[], PropertyLens(sname), Symbol(x))
+        if ismutable(value[])
+            setproperty!(value[], sname, Symbol(x))
+        else
+            value[] = set(value[], PropertyLens(sname), Symbol(x))
+        end
     end
 
     return [y]
@@ -103,7 +143,11 @@ function make_control!(value::Observable, ::Type{Date}, sname::Symbol)
     y = SLInput(val; label=name, help=h)
     on(y.value) do x
         # println(":: y ($name): $x type $(typeof(x))")
-        value[] = set(value[], PropertyLens(sname), Date(x))
+        if ismutable(value[])
+            setproperty!(value[], sname, Date(x))
+        else
+            value[] = set(value[], PropertyLens(sname), Date(x))
+        end
     end
 
     return [y]
@@ -118,7 +162,11 @@ function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol)
     y = SLTextarea(sval; label=name, rows=max(5, min(count('\n', sval) + 1, 20)), help=h)
     on(y.value) do x
         # println(":: y ($name): $x type $(typeof(x))")
-        value[] = set(value[], PropertyLens(sname), Markdown.parse(x))
+        if ismutable(value[])
+            setproperty!(value[], sname, Markdown.parse(x))
+        else
+            value[] = set(value[], PropertyLens(sname), Markdown.parse(x))
+        end
     end
 
     return [y]
@@ -132,10 +180,18 @@ function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol) wher
     y = SLInput(join(string.(val),','); label=name, help=h)
     on(y.value) do data
         # println(":: y ($name): $x")
-        value[] = if isempty(data)
-            set(value[], PropertyLens(sname), T[])
+        if ismutable(value[])
+            if isempty(data)
+                setproperty!(value[], sname, T[])
+            else
+                setproperty!(value[], sname, map(x->parse(T, x), split(data,',')))
+            end
         else
-            set(value[], PropertyLens(sname), map(x->parse(T, x), split(data,',')))
+            value[] = if isempty(data)
+                set(value[], PropertyLens(sname), T[])
+            else
+                set(value[], PropertyLens(sname), map(x->parse(T, x), split(data,',')))
+            end
         end
         
     end
@@ -261,7 +317,11 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T
         y = sl_card(make_form(ref; file="", class="", container=DOM.div); style="width:100%;")
 
         on(ref) do x
+            if ismutable(value[])
+                setproperty!(value[], sname, ref[])
+            else
                 value[] = set(value[], PropertyLens(sname), ref[])
+            end
         end
 
         return [label, DOM.div(y)]
@@ -281,7 +341,7 @@ cell(x...) = DOM.div(x...;
                     """
                     )
 
-function make_form(value::Observable{T}; file="value.json", class="centered", container=cell) where T
+function make_form(value::Observable{T}; file="", class="centered", container=cell, buttons=[]) where T
 
     form = []
 
@@ -311,6 +371,8 @@ function make_form(value::Observable{T}; file="value.json", class="centered", co
             end
         end
 
+        push!(buttons, save)
+
         # TODO: maybe implement this, complication arrises because the order of editors is linked to the `form` vector, but this prevents adding any non-control elements
         # load = SLButton("load")
         # on(load.value) do x
@@ -333,8 +395,10 @@ function make_form(value::Observable{T}; file="value.json", class="centered", co
         #     end
         
         # end
+    end
 
-        return DOM.div(form..., DOM.hr(), save; class)
+    if !isempty(buttons)
+        return DOM.div(form..., DOM.hr(), buttons...; class)
     else
         return DOM.div(form...; class)
     end
@@ -352,7 +416,7 @@ function editor(file::String, T::Type; mode=vscode, kwargs...)
     return editor(value; file, mode, kwargs...)
 end
 
-function editor(value::T; file="value.json", mode=vscode, server = nothing, path="/", kwargs...) where T
+function editor(value::T; file="", mode=vscode, server = nothing, path="/", kwargs...) where T
 
     form = make_form(Observable(value); file, kwargs...)
 
