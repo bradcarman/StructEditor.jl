@@ -40,7 +40,7 @@ file=joinpath(@__DIR__, "pets.json")
 function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: Animal
     name = string(sname)
     val = getproperty(value[], sname)
-    local ref::Ref
+    local ref::Observable
     select = SLSelect(["Dog","Cat"]; label=name)
 
     if val isa Dog
@@ -69,8 +69,8 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol)
     
     on(button.value) do x
         val = getproperty(value[], sname)
-        ref = Ref(val)
-        dialog.value[] = DOM.div(StructEditor.make_form(ref; file=""))
+        ref = Observable(val)
+        dialog.value[] = DOM.div(StructEditor.make_form(ref; file="", class=""))
         dialog.open[] = true
     end
 
@@ -83,4 +83,4 @@ h = Household(Dog("Ellie",10))
 editor(h; file)
 
 # open file
-editor(file, Household)
+editor(file, Household; mode=StructEditor.browser)
