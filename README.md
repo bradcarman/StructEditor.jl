@@ -14,7 +14,7 @@ Here is an example of the form generated straight out of the box using StructEdi
   - `Date` → date input
   - `Markdown.MD` → multi-line textarea
   - `Vector` → tree view with per-item dialogs for nested structs
-- Autoamitically builds control cards for special types inherriting `AbstractStructEditor`
+- Autoamitically builds control cards for child structs
 - Loads and saves struct data as JSON
 - Renders in VS Code (default) or a browser
 
