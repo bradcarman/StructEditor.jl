@@ -55,7 +55,7 @@ editor(All(); file)
 editor(file, All; mode = StructEditor.browser)
 ```
 
-For a more advanced examples: 
+For more advanced examples: 
 - how to handle `abstract` types, see "examples/pets.jl"
 - how to handle manipulation of controls based on set values, see "examples/toggle.jl"
 - how to handle composite field types, see "examples/special.jl"
@@ -67,14 +67,19 @@ For a more advanced examples:
 
 Opens an editor for `value` (a struct instance). Changes are saved to `file` when the **save** button is clicked.
 
-- `file`: path to the JSON file (default: `"value.json"`)
+- `file`: path to the JSON file (default: `"value.json"`), if empty the `save` button is not included
 - `mode`: `StructEditor.vscode` (default) or `StructEditor.browser`
+
+Additional keywords are passed to `StructEditor.make_form`...
+- `class`: the CSS class to style the form (default: "centered", a built-in style)
+- `container`: the function that each struct field control is wrapped with (default: `cell` is built-in, a styled `DOM.div`)
+- `buttons`: add additional buttons along side `save` thru this keyword (default: empty array `[]`)
 
 ### `editor(file, T; mode, kwargs...)`
 
 Loads a struct of type `T` from a `file` path and opens an editor for it.
 
-### `make_control!(value::Observable, ::Type{T}, sname::Symbol)`
+### `StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol)`
 
 By defining `make_control!` for your type `T`, customization is possible.  See "examples/pets.jl" for an example of how this can be implemented.
 

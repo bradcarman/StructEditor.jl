@@ -288,7 +288,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
         end
     end
 
-    return [y, dialog, DOM.div(add, edit, delete)]
+    return [y, DOM.div(add, edit, delete), dialog]
 end
 
 function iscomposite(T::Type)
@@ -341,6 +341,17 @@ cell(x...) = DOM.div(x...;
                     """
                     )
 
+"""
+    make_form(value::Observable{T}; file="", class="centered", container=cell, buttons=[]) where T
+
+Builds a `div::Hyperscript.Node` containing a form editor of struct `value::T`.  The struct `value` must be wrapped in an `Observable`.
+
+## kwargs
+- `file=""`: output saved to this file path, if empty the `save` button is not included
+- `class="centered"`: the CSS class to style the form, "centered" is built-in
+- `container=cell`: the function that each struct field control is wrapped with (for example `DOM.div`), `cell` is built-in
+- `buttons=[]`: add additional buttons along side `save` thru this keyword
+"""
 function make_form(value::Observable{T}; file="", class="centered", container=cell, buttons=[]) where T
 
     form = []
