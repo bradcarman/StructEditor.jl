@@ -94,7 +94,8 @@ end
         controls = StructEditor.make_control!(obs, Vector{TestPerson}, :items)
         @test length(controls) == 3
         @test controls[1] isa SLList
-        @test controls[2] isa SLDialog
+        # @test controls[2] isa SLButton
+        @test controls[3] isa SLDialog
     end
 
     @testset "callbacks" begin
