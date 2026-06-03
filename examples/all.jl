@@ -24,7 +24,8 @@ file=joinpath(@__DIR__, "All.json")
 StructEditor.skip_field(::Type{All}, ::Val{:skip}) = true
 
 # create a new file
-editor(All(); file)
+all = All();
+editor(all; file)
 
 # load an existing file
 # editor(file, All, mode = StructEditor.browser)

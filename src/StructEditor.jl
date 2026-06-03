@@ -330,6 +330,14 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T
     end
 end
 
+"""
+    make_control!(value::Observable, ::Val)
+
+Defined to dispatch to a specific field `Val(field)`, generic definition defaults to nothing and falls to `make_control!(value::Observable, ::Type{T}, sname::Symbol) where T`
+"""
+make_control!(value::Observable, ::Val) = nothing
+
+
 # background-color: var(--sl-color-neutral-50);
 skip_field(parent::Type, child::Val) = false
 cell(x...) = DOM.div(x...; 
@@ -368,7 +376,14 @@ function make_form(value::Observable{T}; file="", class="centered", container=ce
                 typeof(getproperty(value[], name))
             end
 
-            parts = make_control!(value, ftype, name)
+            # try specific field first
+            parts = make_control!(value, Val(name))
+                
+            # if nothing fall to generic type
+            if isnothing(parts)
+                parts = make_control!(value, ftype, name)
+            end
+
             push!(form, container(parts...))
         end
     end
@@ -429,8 +444,9 @@ end
 
 function editor(value::T; file="", mode=vscode, server = nothing, path="/", kwargs...) where T
 
-    form = make_form(Observable(value); file, kwargs...)
-
+    obs_value = Observable(value)
+    form = make_form(obs_value; file, kwargs...)
+   
     app = App() do session
 
         DOM.html(

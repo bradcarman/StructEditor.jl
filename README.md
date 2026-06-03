@@ -59,6 +59,7 @@ For more advanced examples:
 - how to handle `abstract` types, see "examples/pets.jl"
 - how to handle manipulation of controls based on set values, see "examples/toggle.jl"
 - how to handle composite field types, see "examples/special.jl"
+- how to define `make_control!` for specific fields, see "examples/fieldpattern.jl"
 
 
 ## API
