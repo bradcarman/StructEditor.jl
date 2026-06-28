@@ -1,6 +1,6 @@
 {
   "num": 1.0,
-  "date": "2026-04-02",
+  "date": "2026-06-28",
   "string": "test",
   "bool": true,
   "markdown": "# Header\n",
@@ -15,7 +15,11 @@
     }
   ],
   "vec": [
-    1
+    1,
+    2,
+    3,
+    4
   ],
-  "skip": "skip me"
+  "skip": "skip me",
+  "state": "Proposal"
 }

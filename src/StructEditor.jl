@@ -135,6 +135,29 @@ function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol)
     return [y]
 end
 
+function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: Base.Enum
+    name = string(sname)
+    val = getproperty(value[], sname)
+    h = help(typeof(value[]), Val(sname) )
+
+    opts = instances(T)
+    select = SLSelect([string(x) for x in opts]; label=name, help=h)
+    select.index[] = something(findfirst(==(val), opts), 1)
+
+    on(select.index) do i
+        # println(":: select ($name): $i")
+        i < 1 && return
+        newval = opts[i]
+        if ismutable(value[])
+            setproperty!(value[], sname, newval)
+        else
+            value[] = set(value[], PropertyLens(sname), newval)
+        end
+    end
+
+    return [select]
+end
+
 function make_control!(value::Observable, ::Type{Date}, sname::Symbol)
     name = string(sname)
     val = getproperty(value[], sname)

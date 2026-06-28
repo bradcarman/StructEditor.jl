@@ -2,6 +2,8 @@ using StructEditor
 using Dates
 using Markdown
 
+@enum StateType Proposal Current Closed Forecast Archived
+
 @kwdef struct Person
     name::String = "name"
     age::Int = 0
@@ -16,6 +18,7 @@ end
     people::Vector{Person} = [Person("person 1", 1), Person("person 2", 2)]
     vec::Vector{Int} = [1,2,3,4]
     skip::String = "skip me"
+    state::StateType = Closed
 end
 
 
