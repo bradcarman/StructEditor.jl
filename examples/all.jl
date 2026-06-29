@@ -28,7 +28,7 @@ StructEditor.skip_field(::Type{All}, ::Val{:skip}) = true
 
 # create a new file
 all = All();
-editor(all; file)
+editor(all; save_function=StructEditor.SaveFunction(;file))
 
 # load an existing file
 # editor(file, All, mode = StructEditor.browser)

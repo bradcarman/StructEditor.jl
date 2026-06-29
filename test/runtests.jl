@@ -146,15 +146,15 @@ end
         obs = Observable(TestAll())
 
         # make_form without a file (no save button)
-        form = StructEditor.make_form(obs; file="")
+        form = StructEditor.make_form(obs)
         @test !isnothing(form)
 
         # make_form with a file (adds save button)
-        form = StructEditor.make_form(obs; file=tempname() * ".json")
+        form = StructEditor.make_form(obs; save_function=StructEditor.SaveFunction(file=tempname() * ".json"))
         @test !isnothing(form)
 
         # editor from a value returns a Bonito App
-        app = editor(TestAll(); file=tempname() * ".json")
+        app = editor(TestAll(); save_function=StructEditor.SaveFunction(file=tempname() * ".json"))
         @test app isa Bonito.App
 
         # editor from a file returns a Bonito App

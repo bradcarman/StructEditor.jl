@@ -53,7 +53,7 @@ const STYLE_CSS = """
 
 help(::Type, ::Val) = ""
 
-function make_control!(value::Observable, ::Type{Bool}, sname::Symbol)
+function make_control!(value::Observable, ::Type{Bool}, sname::Symbol; dirty=nothing)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -66,12 +66,16 @@ function make_control!(value::Observable, ::Type{Bool}, sname::Symbol)
         else
             value[] = set(value[], PropertyLens(sname), x)
         end
+
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     return [checkbox]
 end
 
-function make_control!(value::Observable, ::Type{Missing}, sname::Symbol)
+function make_control!(value::Observable, ::Type{Missing}, sname::Symbol; dirty=nothing)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -81,7 +85,7 @@ function make_control!(value::Observable, ::Type{Missing}, sname::Symbol)
     return [x]
 end
 
-function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: Number
+function make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothing) where T <: Number
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -94,12 +98,16 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: N
         else
             value[] = set(value[], PropertyLens(sname), T(x))
         end
+
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{String}, sname::Symbol)
+function make_control!(value::Observable, ::Type{String}, sname::Symbol; dirty=nothing)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -112,12 +120,16 @@ function make_control!(value::Observable, ::Type{String}, sname::Symbol)
         else
             value[] = set(value[], PropertyLens(sname), x)
         end
+
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol)
+function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol; dirty=nothing)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -130,12 +142,16 @@ function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol)
         else
             value[] = set(value[], PropertyLens(sname), Symbol(x))
         end
+
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: Base.Enum
+function make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothing) where T <: Base.Enum
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -153,12 +169,16 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: B
         else
             value[] = set(value[], PropertyLens(sname), newval)
         end
+
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     return [select]
 end
 
-function make_control!(value::Observable, ::Type{Date}, sname::Symbol)
+function make_control!(value::Observable, ::Type{Date}, sname::Symbol; dirty=nothing)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -171,12 +191,16 @@ function make_control!(value::Observable, ::Type{Date}, sname::Symbol)
         else
             value[] = set(value[], PropertyLens(sname), Date(x))
         end
+
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol)
+function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol; dirty=nothing)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -190,12 +214,16 @@ function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol)
         else
             value[] = set(value[], PropertyLens(sname), Markdown.parse(x))
         end
+
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol) where T <: Number
+function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol; dirty=nothing) where T <: Number
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -217,12 +245,15 @@ function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol) wher
             end
         end
         
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
+function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol; dirty=nothing)
     name = string(sname)
     val = getproperty(value[], sname)
     T = eltype(val)
@@ -265,6 +296,10 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
                 popat!(y, i+1)
                 notify(value) # also notify the parent that the list changed
                 y.index = i
+        
+                if dirty isa Function
+                    dirty(true)
+                end
             end
             updating = false
         end
@@ -277,6 +312,9 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
         push!(val, item) 
         push!(y, ShoelaceWidgets.SLListItem("$item"))
         y.index = length(val)
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     edit = SLButton("edit"; variant="text", size="small", disabled=true)
@@ -294,6 +332,9 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol)
             popat!(val, i)
             popat!(y, i)
             notify(y.value)
+            if dirty isa Function
+                dirty(true)
+            end            
         end
     end
 
@@ -331,19 +372,23 @@ function iscomposite(T::Type)
     return n > 0
 end
 
-function make_control!(value::Observable, ::Type{T}, sname::Symbol) where T
+function make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothing) where T
     if iscomposite(T) > 0
         name = string(sname)
         val = getproperty(value[], sname)
         ref = Observable(val) 
         label = DOM.div(name; class="shoelace-label")
-        y = sl_card(make_form(ref; file="", class="", container=DOM.div); style="width:100%;")
+        y = sl_card(make_form(ref; class="", container=DOM.div); style="width:100%;")
 
         on(ref) do x
             if ismutable(value[])
                 setproperty!(value[], sname, ref[])
             else
                 value[] = set(value[], PropertyLens(sname), ref[])
+            end
+
+            if dirty isa Function
+                dirty(true)
             end
         end
 
@@ -358,7 +403,7 @@ end
 
 Defined to dispatch to a specific field `Val(field)`, generic definition defaults to nothing and falls to `make_control!(value::Observable, ::Type{T}, sname::Symbol) where T`
 """
-make_control!(value::Observable, ::Val) = nothing
+make_control!(value::Observable, ::Val; dirty=nothing) = nothing
 
 
 # background-color: var(--sl-color-neutral-50);
@@ -372,24 +417,62 @@ cell(x...) = DOM.div(x...;
                     """
                     )
 
+@kwdef struct SaveFunction
+    file::Union{String,Nothing} = nothing
+    func::Union{Function,Nothing} = nothing
+end
+
 """
     make_form(value::Observable{T}; file="", class="centered", container=cell, buttons=[]) where T
 
 Builds a `div::Hyperscript.Node` containing a form editor of struct `value::T`.  The struct `value` must be wrapped in an `Observable`.
 
 ## kwargs
-- `file=""`: output saved to this file path, if empty the `save` button is not included
+- `save_button::Union{SaveFunction, Nothing}=nothing`: outputs to json `file` path if not nothing and/or calls function `func` if not nothing, if set to nothing save button is not included
 - `class="centered"`: the CSS class to style the form, "centered" is built-in
 - `container=cell`: the function that each struct field control is wrapped with (for example `DOM.div`), `cell` is built-in
 - `buttons=[]`: add additional buttons along side `save` thru this keyword
 """
-function make_form(value::Observable{T}; file="", class="centered", container=cell, buttons=[]) where T
+function make_form(value::Observable{T}; save_function::Union{SaveFunction, Nothing}=nothing, class="centered", container=cell,  buttons=[]) where T
 
     form = []
 
     pnames = propertynames(value[])
+
+
+    dirty = identity
     
-    
+    if !isnothing(save_function)
+        save_button = SLButton("save"; variant="primary", disabled=true)
+
+        dirty(x::Bool) = save_button.disabled[] = !x
+
+        on(save_button.value) do x
+            save_button.loading[] = true
+            try
+                if !isnothing(save_function.file)
+                    open(save_function.file, "w") do io
+                        JSON.json(io, value[]; pretty=true)
+                    end
+                end
+
+                if !isnothing(save_function.func)
+                    save_function.func()
+                end    
+
+                save_button.disabled[] = true
+            catch err
+                @error "Save failed" exception=(err, catch_backtrace())
+            finally
+                save_button.loading[] = false
+            end
+        end
+
+        push!(buttons, save_button)
+    end
+
+
+
     for name in pnames
         if !skip_field(T, Val(name))
 
@@ -400,11 +483,11 @@ function make_form(value::Observable{T}; file="", class="centered", container=ce
             end
 
             # try specific field first
-            parts = make_control!(value, Val(name))
+            parts = make_control!(value, Val(name); dirty)
                 
             # if nothing fall to generic type
             if isnothing(parts)
-                parts = make_control!(value, ftype, name)
+                parts = make_control!(value, ftype, name; dirty)
             end
 
             push!(form, container(parts...))
@@ -412,39 +495,6 @@ function make_form(value::Observable{T}; file="", class="centered", container=ce
     end
 
 
-    if !isempty(file)
-        save = SLButton("save")
-        on(save.value) do x
-            open(file, "w") do io
-                JSON.json(io, value[]; pretty=true)
-            end
-        end
-
-        push!(buttons, save)
-
-        # TODO: maybe implement this, complication arrises because the order of editors is linked to the `form` vector, but this prevents adding any non-control elements
-        # load = SLButton("load")
-        # on(load.value) do x
-        #     value[] = open(file) do io
-        #         JSON3.read(io, T)
-        #     end
-            
-        #     for (sname, ftype, f) in zip(fieldnames(T), fieldtypes(T), form)
-        #         name = string(sname)
-        #         val = getproperty(value[], sname)
-        #         # println("$name = $val")
-        #         if val isa Date
-        #             val = string(val)
-        #         end
-        #         if val isa Markdown.MD
-        #             val = Markdown.plain(val)
-        #             f.rows[] = min(count('\n', val) + 1, 20)
-        #         end
-        #         f.value[] = val
-        #     end
-        
-        # end
-    end
 
     if !isempty(buttons)
         return DOM.div(form..., DOM.hr(), buttons...; class)
@@ -452,6 +502,29 @@ function make_form(value::Observable{T}; file="", class="centered", container=ce
         return DOM.div(form...; class)
     end
 end
+
+# TODO: maybe implement this, complication arrises because the order of editors is linked to the `form` vector, but this prevents adding any non-control elements
+# load = SLButton("load")
+# on(load.value) do x
+#     value[] = open(file) do io
+#         JSON3.read(io, T)
+#     end
+    
+#     for (sname, ftype, f) in zip(fieldnames(T), fieldtypes(T), form)
+#         name = string(sname)
+#         val = getproperty(value[], sname)
+#         # println("$name = $val")
+#         if val isa Date
+#             val = string(val)
+#         end
+#         if val isa Markdown.MD
+#             val = Markdown.plain(val)
+#             f.rows[] = min(count('\n', val) + 1, 20)
+#         end
+#         f.value[] = val
+#     end
+
+# end
 
 function make_form(file::String, T::Type)
     value = JSON.parsefile(file, T)
@@ -462,13 +535,14 @@ end
 
 function editor(file::String, T::Type; mode=vscode, kwargs...)
     value = JSON.parsefile(file, T)
-    return editor(value; file, mode, kwargs...)
+    save_function=SaveFunction(;file)
+    return editor(value; save_function, mode, kwargs...)
 end
 
-function editor(value::T; file="", mode=vscode, server = nothing, path="/", kwargs...) where T
+function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, mode=vscode, server = nothing, path="/", kwargs...) where T
 
     obs_value = Observable(value)
-    form = make_form(obs_value; file, kwargs...)
+    form = make_form(obs_value; save_function, kwargs...)
    
     app = App() do session
 

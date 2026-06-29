@@ -37,7 +37,7 @@ file=joinpath(@__DIR__, "pets.json")
 # end
 # value = JSON.parsefile(file, Household)
 
-function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol) where T <: Animal
+function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothing) where T <: Animal
     name = string(sname)
     val = getproperty(value[], sname)
     local ref::Observable
@@ -55,6 +55,10 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol)
         elseif i == 2
             value[] = set(value[], PropertyLens(sname), Cat("",false))
         end
+        
+        if dirty isa Function
+            dirty(true)
+        end
     end
 
     button = SLButton("edit")
@@ -64,13 +68,17 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol)
     on(dialog.open) do o
         if !o
             value[] = set(value[], PropertyLens(sname), ref[])
+
+            if dirty isa Function
+                dirty(true)
+            end
         end
     end
     
     on(button.value) do x
         val = getproperty(value[], sname)
         ref = Observable(val)
-        dialog.value[] = DOM.div(StructEditor.make_form(ref; file="", class=""))
+        dialog.value[] = DOM.div(StructEditor.make_form(ref; class=""))
         dialog.open[] = true
     end
 
@@ -80,7 +88,7 @@ end
 h = Household(Dog("Ellie",10))
 
 # open editor
-editor(h; file)
+editor(h; save_function=StructEditor.SaveFunction(;file))
 
 # open file
 editor(file, Household; mode=StructEditor.browser)
