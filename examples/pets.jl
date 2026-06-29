@@ -37,7 +37,7 @@ file=joinpath(@__DIR__, "pets.json")
 # end
 # value = JSON.parsefile(file, Household)
 
-function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothing) where T <: Animal
+function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: Animal
     name = string(sname)
     val = getproperty(value[], sname)
     local ref::Observable
@@ -56,9 +56,7 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol;
             value[] = set(value[], PropertyLens(sname), Cat("",false))
         end
         
-        if dirty isa Function
-            dirty(true)
-        end
+        dirty(true)
     end
 
     button = SLButton("edit")
@@ -69,9 +67,7 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol;
         if !o
             value[] = set(value[], PropertyLens(sname), ref[])
 
-            if dirty isa Function
-                dirty(true)
-            end
+            dirty(true)
         end
     end
     

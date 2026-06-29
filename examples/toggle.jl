@@ -18,7 +18,7 @@ StructEditor.help(::Type{Task}, ::Val{:start}) = "Note: \"Specified\" means the 
 # rule, if start_date is nothing, then start should be Next, Parallel, or Delayed, otherwise it should be specified
 
 
-function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothing) where T <: StartType
+function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: StartType
     name = string(sname)
     val = getproperty(value[], sname)
     h = StructEditor.help(typeof(value[]), Val(sname) )
@@ -28,16 +28,14 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol;
 
     on(select.index) do i
         value[] = set(value[], PropertyLens(sname), StartType(i-1))
-
-        if dirty isa Function
-            dirty(true)
-        end
+        
+        dirty(true)
     end
 
     return [select]
 end
 
-function StructEditor.make_control!(value::Observable, ::Type{Union{Date, Nothing}}, sname::Symbol; dirty=nothing)
+function StructEditor.make_control!(value::Observable, ::Type{Union{Date, Nothing}}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     h = StructEditor.help(typeof(value[]), Val(sname) )
@@ -61,9 +59,7 @@ function StructEditor.make_control!(value::Observable, ::Type{Union{Date, Nothin
         # println(":: y ($name): $x type $(typeof(x))")
         value[] = set(value[], PropertyLens(sname), Date(x))
 
-        if dirty isa Function
-            dirty(true)
-        end
+        dirty(true)
     end
 
     return [y]

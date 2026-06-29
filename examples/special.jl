@@ -30,3 +30,5 @@ file=joinpath(@__DIR__, "special.json")
 
 # create a new file
 editor(Special(); save_function=StructEditor.SaveFunction(;file))
+
+# editor(file, Special)

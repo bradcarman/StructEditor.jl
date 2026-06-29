@@ -10,7 +10,7 @@ using ShoelaceWidgets
     c::String = "c"
 end
 
-function StructEditor.make_control!(value::Observable{DifferentFields}, ::Val{:b})
+function StructEditor.make_control!(value::Observable{DifferentFields}, ::Val{:b}, dirty=identity)
     sname = :b
     name = string(sname)
     val = getproperty(value[], sname)
@@ -23,6 +23,7 @@ function StructEditor.make_control!(value::Observable{DifferentFields}, ::Val{:b
             setproperty!(value[], sname, x)
         else
             value[] = set(value[], PropertyLens(sname), x)
+            dirty(true)
         end
     end
 

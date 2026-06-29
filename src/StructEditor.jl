@@ -53,7 +53,7 @@ const STYLE_CSS = """
 
 help(::Type, ::Val) = ""
 
-function make_control!(value::Observable, ::Type{Bool}, sname::Symbol; dirty=nothing)
+function make_control!(value::Observable, ::Type{Bool}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -75,7 +75,7 @@ function make_control!(value::Observable, ::Type{Bool}, sname::Symbol; dirty=not
     return [checkbox]
 end
 
-function make_control!(value::Observable, ::Type{Missing}, sname::Symbol; dirty=nothing)
+function make_control!(value::Observable, ::Type{Missing}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -85,7 +85,7 @@ function make_control!(value::Observable, ::Type{Missing}, sname::Symbol; dirty=
     return [x]
 end
 
-function make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothing) where T <: Number
+function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: Number
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -107,7 +107,7 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothin
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{String}, sname::Symbol; dirty=nothing)
+function make_control!(value::Observable, ::Type{String}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -129,7 +129,7 @@ function make_control!(value::Observable, ::Type{String}, sname::Symbol; dirty=n
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol; dirty=nothing)
+function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -151,7 +151,7 @@ function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol; dirty=n
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothing) where T <: Base.Enum
+function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: Base.Enum
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -178,7 +178,7 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothin
     return [select]
 end
 
-function make_control!(value::Observable, ::Type{Date}, sname::Symbol; dirty=nothing)
+function make_control!(value::Observable, ::Type{Date}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -200,7 +200,7 @@ function make_control!(value::Observable, ::Type{Date}, sname::Symbol; dirty=not
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol; dirty=nothing)
+function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -223,7 +223,7 @@ function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol; di
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol; dirty=nothing) where T <: Number
+function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol, dirty=identity) where T <: Number
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
@@ -253,7 +253,7 @@ function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol; dirt
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol; dirty=nothing)
+function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     T = eltype(val)
@@ -372,7 +372,7 @@ function iscomposite(T::Type)
     return n > 0
 end
 
-function make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothing) where T
+function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T
     if iscomposite(T) > 0
         name = string(sname)
         val = getproperty(value[], sname)
@@ -394,16 +394,16 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol; dirty=nothin
 
         return [label, DOM.div(y)]
     else
-        error("type $T not supported, add a `StructEditor.make_control!(value::Observable, ::Type{$T}, sname::Symbol)` function to your package.")
+        error("type $T not supported, add a `StructEditor.make_control!(value::Observable, ::Type{$T}, sname::Symbol, dirty=identity)` function to your package.")
     end
 end
 
 """
-    make_control!(value::Observable, ::Val)
+    make_control!(value::Observable, ::Val, dirty=identity)
 
 Defined to dispatch to a specific field `Val(field)`, generic definition defaults to nothing and falls to `make_control!(value::Observable, ::Type{T}, sname::Symbol) where T`
 """
-make_control!(value::Observable, ::Val; dirty=nothing) = nothing
+make_control!(value::Observable, ::Val, dirty=identity) = nothing
 
 
 # background-color: var(--sl-color-neutral-50);
@@ -483,11 +483,11 @@ function make_form(value::Observable{T}; save_function::Union{SaveFunction, Noth
             end
 
             # try specific field first
-            parts = make_control!(value, Val(name); dirty)
+            parts = make_control!(value, Val(name), dirty)
                 
             # if nothing fall to generic type
             if isnothing(parts)
-                parts = make_control!(value, ftype, name; dirty)
+                parts = make_control!(value, ftype, name, dirty)
             end
 
             push!(form, container(parts...))
