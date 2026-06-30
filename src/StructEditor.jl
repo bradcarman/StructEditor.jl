@@ -282,7 +282,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
             i = y.index    
             if !isnothing(i) && (i > 0)
                 ref = Observable(val[i])
-                dialog.value[] = make_form(ref; file="", class="")
+                dialog.value[] = make_form(ref; class="")
             else
                 dialog.value[] = DOM.div("error")
             end
@@ -296,10 +296,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
                 popat!(y, i+1)
                 notify(value) # also notify the parent that the list changed
                 y.index = i
-        
-                if dirty isa Function
-                    dirty(true)
-                end
+                dirty(true)
             end
             updating = false
         end
@@ -312,9 +309,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
         push!(val, item) 
         push!(y, ShoelaceWidgets.SLListItem("$item"))
         y.index = length(val)
-        if dirty isa Function
-            dirty(true)
-        end
+        dirty(true)
     end
 
     edit = SLButton("edit"; variant="text", size="small", disabled=true)
@@ -332,9 +327,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
             popat!(val, i)
             popat!(y, i)
             notify(y.value)
-            if dirty isa Function
-                dirty(true)
-            end            
+            dirty(true)
         end
     end
 
