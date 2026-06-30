@@ -539,7 +539,7 @@ function editor(file::String, T::Type; mode=vscode, kwargs...)
     return editor(value; save_function, mode, kwargs...)
 end
 
-function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, mode=vscode, server = nothing, path="/", kwargs...) where T
+function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, mode=vscode, server = nothing, path="/", icon="https://icons.getbootstrap.com/assets/icons/pencil.svg", kwargs...) where T
 
     obs_value = Observable(value)
     form = make_form(obs_value; save_function, kwargs...)
@@ -549,7 +549,8 @@ function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, m
         DOM.html(
             DOM.head(
                 get_shoelace()...,
-                DOM.style(STYLE_CSS)
+                DOM.style(STYLE_CSS),
+                DOM.link(; rel="icon", type="image/svg+xml", href=icon)
             ),
             DOM.body(
                 form
