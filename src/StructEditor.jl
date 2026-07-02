@@ -534,10 +534,14 @@ end
 
 function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, mode=vscode, server = nothing, path="/", icon="https://icons.getbootstrap.com/assets/icons/pencil.svg", title=string(T), kwargs...) where T
 
-    obs_value = Observable(value)
-    form = make_form(obs_value; save_function, kwargs...)
-   
     app = App() do session
+
+        # Build the form (and its widgets/Observables) fresh per session. Bonito
+        # widgets carry mutable per-session state, so a form shared across sessions
+        # breaks on the 2nd open (e.g. an SLSelect's value binding collides and the
+        # client sends NaN on change). Constructing inside the closure isolates each open.
+        obs_value = Observable(value)
+        form = make_form(obs_value; save_function, kwargs...)
 
         DOM.html(
             DOM.head(
