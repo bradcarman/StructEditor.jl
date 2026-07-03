@@ -4,17 +4,17 @@
     {
       "name": "Julia",
       "age": 20,
-      "sex": "Female"
+      "gender": "Female"
     },
     {
       "name": "Brad",
       "age": 45,
-      "sex": "Male"
+      "gender": "Male"
     },
     {
       "name": "Ellie",
       "age": 12,
-      "sex": "Female"
+      "gender": "Female"
     }
   ]
 }

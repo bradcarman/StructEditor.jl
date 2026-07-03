@@ -92,9 +92,12 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
+
+    
     
     y = SLInput(val; label=name, help=h)
     on(y.value) do x
+
         # println(":: y ($name): $x")
         if ismutable(value[])
             setproperty!(value[], sname, T(x))
@@ -102,9 +105,8 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
             value[] = set(value[], PropertyLens(sname), T(x))
         end
 
-        if dirty isa Function
-            dirty(true)
-        end
+        
+        dirty(true)
     end
 
     return [y]
@@ -123,10 +125,8 @@ function make_control!(value::Observable, ::Type{String}, sname::Symbol, dirty=i
         else
             value[] = set(value[], PropertyLens(sname), x)
         end
-
-        if dirty isa Function
-            dirty(true)
-        end
+        
+        dirty(true)
     end
 
     return [y]
@@ -146,9 +146,7 @@ function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol, dirty=i
             value[] = set(value[], PropertyLens(sname), Symbol(x))
         end
 
-        if dirty isa Function
-            dirty(true)
-        end
+        dirty(true)
     end
 
     return [y]
@@ -173,9 +171,7 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
             value[] = set(value[], PropertyLens(sname), newval)
         end
 
-        if dirty isa Function
-            dirty(true)
-        end
+        dirty(true)
     end
 
     return [select]
@@ -195,9 +191,8 @@ function make_control!(value::Observable, ::Type{Date}, sname::Symbol, dirty=ide
             value[] = set(value[], PropertyLens(sname), Date(x))
         end
 
-        if dirty isa Function
-            dirty(true)
-        end
+        
+        dirty(true)
     end
 
     return [y]
@@ -218,9 +213,7 @@ function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol, di
             value[] = set(value[], PropertyLens(sname), Markdown.parse(x))
         end
 
-        if dirty isa Function
-            dirty(true)
-        end
+        dirty(true)
     end
 
     return [y]
@@ -248,9 +241,7 @@ function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol, dirt
             end
         end
         
-        if dirty isa Function
-            dirty(true)
-        end
+        dirty(true)
     end
 
     return [y]
@@ -374,7 +365,15 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
         val = getproperty(value[], sname)
         ref = Observable(val) 
         label = DOM.div(name; class="shoelace-label")
-        y = sl_card(make_form(ref; class="", container=DOM.div); style="width:100%;")
+
+        container=DOM.div
+        form = build_fields(ref,
+            (v, key) -> make_control!(v, key, dirty),
+            (v, ftype, name) -> make_control!(v, ftype, name, dirty),
+            container)
+
+
+        y = sl_card(form; style="width:100%;")
 
         on(ref) do x
             if ismutable(value[])
@@ -383,9 +382,7 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
                 value[] = set(value[], PropertyLens(sname), ref[])
             end
 
-            if dirty isa Function
-                dirty(true)
-            end
+            dirty(true)
         end
 
         return [label, DOM.div(y)]
