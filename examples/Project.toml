@@ -1,0 +1,4 @@
+[deps]
+Bonito = "824d6782-a2ef-11e9-3a09-e5662e0c26f8"
+StructEditor = "f41bf64d-372c-4047-8f65-4cd74346a5da"
+WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"

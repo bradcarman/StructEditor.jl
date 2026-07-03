@@ -1,0 +1,20 @@
+{
+  "name": "Team Julia",
+  "people": [
+    {
+      "name": "Julia",
+      "age": 20,
+      "sex": "Female"
+    },
+    {
+      "name": "Brad",
+      "age": 45,
+      "sex": "Male"
+    },
+    {
+      "name": "Ellie",
+      "age": 12,
+      "sex": "Female"
+    }
+  ]
+}

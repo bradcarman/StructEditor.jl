@@ -11,7 +11,7 @@ StructUtils.structlike(::StructUtils.StructStyle, ::Type{Markdown.MD}) = false
 StructUtils.lower(md::Markdown.MD) = Markdown.plain(md)
 StructUtils.lift(::Type{Markdown.MD}, s::AbstractString) = Markdown.parse(s)
 
-export editor
+export editor, viewer
 
 const STYLE_CSS = """
 
@@ -49,6 +49,11 @@ const STYLE_CSS = """
         font-weight: var(--sl-font-weight-normal);
         line-height: var(--sl-line-height-normal);
     }
+
+    body {
+        min-height: 100vh;
+        margin: 0;
+    }
 """
 
 help(::Type, ::Val) = ""
@@ -67,9 +72,7 @@ function make_control!(value::Observable, ::Type{Bool}, sname::Symbol, dirty=ide
             value[] = set(value[], PropertyLens(sname), x)
         end
 
-        if dirty isa Function
-            dirty(true)
-        end
+        dirty(true)
     end
 
     return [checkbox]
@@ -399,6 +402,114 @@ Defined to dispatch to a specific field `Val(field)`, generic definition default
 make_control!(value::Observable, ::Val, dirty=identity) = nothing
 
 
+# -----------------------------------------------------------------------------
+# make_view! : read-only counterpart to make_control!
+#
+# Instead of an interactive control, each method renders the field's value as
+# plain, labelled text and subscribes to `value` so the display updates whenever
+# the Observable is notified (e.g. a parent struct changing). Signature mirrors
+# make_control! minus `dirty` (a view never marks anything dirty).
+# -----------------------------------------------------------------------------
+
+"""
+    view_field(value::Observable, sname::Symbol, format=string)
+
+Render field `sname` of `value[]` as a label + reactive text value, matching the
+`.shoelace-label` / `.shoelace-help` styling used by the editor controls. `format`
+converts the field value to the displayed string. Reused by the scalar
+`make_view!` methods.
+"""
+function view_field(value::Observable, sname::Symbol, format=string)
+    name = string(sname)
+    h = help(typeof(value[]), Val(sname))
+
+    text = Observable{String}(format(getproperty(value[], sname)))
+    on(value) do v
+        text[] = format(getproperty(v, sname))
+    end
+
+    parts = Any[DOM.div(name; class="shoelace-label"), DOM.div(text)]
+    isempty(h) || push!(parts, DOM.div(h; class="shoelace-help"))
+    return parts
+end
+
+make_view!(value::Observable, ::Type{Bool}, sname::Symbol) = view_field(value, sname)
+make_view!(value::Observable, ::Type{Missing}, sname::Symbol) = view_field(value, sname)
+make_view!(value::Observable, ::Type{<:Number}, sname::Symbol) = view_field(value, sname)
+make_view!(value::Observable, ::Type{String}, sname::Symbol) = view_field(value, sname)
+make_view!(value::Observable, ::Type{Symbol}, sname::Symbol) = view_field(value, sname)
+make_view!(value::Observable, ::Type{<:Base.Enum}, sname::Symbol) = view_field(value, sname)
+make_view!(value::Observable, ::Type{Date}, sname::Symbol) = view_field(value, sname)
+make_view!(value::Observable, ::Type{Vector{T}}, sname::Symbol) where T <: Number =
+    view_field(value, sname, v -> join(string.(v), ", "))
+
+function make_view!(value::Observable, ::Type{Markdown.MD}, sname::Symbol)
+    name = string(sname)
+    h = help(typeof(value[]), Val(sname))
+
+    md = Observable{Any}(getproperty(value[], sname))
+    on(value) do v
+        md[] = getproperty(v, sname)
+    end
+
+    parts = Any[DOM.div(name; class="shoelace-label"), DOM.div(md)]
+    isempty(h) || push!(parts, DOM.div(h; class="shoelace-help"))
+    return parts
+end
+
+function make_view!(value::Observable, ::Type{<:Vector}, sname::Symbol)
+    name = string(sname)
+    h = help(typeof(value[]), Val(sname))
+
+    items = Observable{Any}(getproperty(value[], sname))
+    on(value) do v
+        items[] = getproperty(v, sname)
+    end
+
+    # rebuild the (read-only) list whenever the vector changes; composite
+    # elements recurse into make_view, scalars render as plain text.
+    list = map(items) do vec
+        rows = map(vec) do item
+            if iscomposite(typeof(item))
+                sl_card(make_view(Observable(item); class="", container=DOM.div); style="width:100%; padding: 2px")
+            else
+                DOM.div(string(item))
+            end
+        end
+        DOM.div(rows...)
+    end
+
+    parts = Any[DOM.div(name; class="shoelace-label"), DOM.div(list)]
+    isempty(h) || push!(parts, DOM.div(h; class="shoelace-help"))
+    return parts
+end
+
+function make_view!(value::Observable, ::Type{T}, sname::Symbol) where T
+    if iscomposite(T)
+        name = string(sname)
+        val = getproperty(value[], sname)
+        ref = Observable(val)
+        on(value) do v
+            ref[] = getproperty(v, sname)
+        end
+
+        label = DOM.div(name; class="shoelace-label")
+        y = sl_card(make_view(ref; class="", container=DOM.div); style="width:100%;")
+        return [label, DOM.div(y)]
+    else
+        error("type $T not supported for viewing, add a `StructEditor.make_view!(value::Observable, ::Type{$T}, sname::Symbol)` function to your package.")
+    end
+end
+
+"""
+    make_view!(value::Observable, ::Val)
+
+Field-specific dispatch hook (mirrors the `make_control!(::Val)` hook). The generic
+definition returns `nothing`, falling through to the type-based `make_view!`.
+"""
+make_view!(value::Observable, ::Val) = nothing
+
+
 # background-color: var(--sl-color-neutral-50);
 skip_field(parent::Type, child::Val) = false
 cell(x...) = DOM.div(x...; 
@@ -410,35 +521,69 @@ cell(x...) = DOM.div(x...;
                     """
                     )
 
+"""
+    SaveFunction(; file=nothing, func=nothing)
+
+Describes what an [`editor`](@ref)'s `save` button does. Supplying a `SaveFunction` to
+`editor` (or `make_form`) is what enables the save button; both fields default to `nothing`:
+
+- `file`: path to the JSON file `value` is written to on save
+- `func`: a zero-argument function called on save (e.g. to trigger downstream side effects)
+
+Pass either or both.
+"""
 @kwdef struct SaveFunction
     file::Union{String,Nothing} = nothing
     func::Union{Function,Nothing} = nothing
 end
 
 """
-    make_form(value::Observable{T}; file="", class="centered", container=cell, buttons=[]) where T
+    build_fields(value::Observable, val_fn, type_fn, container)
+
+Iterate the fields of `value[]`, building the parts for each. `val_fn(value, Val(name))`
+(field-specific dispatch) is tried first; if it returns `nothing`, the type-based
+`type_fn(value, ftype, name)` is used. Each field's parts are wrapped with `container`.
+Shared by `make_form` (editor controls) and `make_view` (read-only views).
+"""
+function build_fields(value::Observable{T}, val_fn, type_fn, container) where T
+    form = []
+    for name in propertynames(value[])
+        skip_field(T, Val(name)) && continue
+
+        ftype = hasfield(T, name) ? fieldtype(T, name) : typeof(getproperty(value[], name))
+
+        parts = val_fn(value, Val(name))          # try field-specific first
+        if isnothing(parts)
+            parts = type_fn(value, ftype, name)   # fall to generic type
+        end
+
+        push!(form, container(parts...))
+    end
+    return form
+end
+
+"""
+    make_form(value::Observable{T}; save_function=nothing, class="centered", container=cell, buttons=[]) where T
 
 Builds a `div::Hyperscript.Node` containing a form editor of struct `value::T`.  The struct `value` must be wrapped in an `Observable`.
 
 ## kwargs
-- `save_button::Union{SaveFunction, Nothing}=nothing`: outputs to json `file` path if not nothing and/or calls function `func` if not nothing, if set to nothing save button is not included
+- `save_function::Union{SaveFunction, Nothing}=nothing`: when a [`SaveFunction`](@ref) is given, a `save` button writes to its json `file` (if not nothing) and/or calls its `func` (if not nothing); when `nothing` the save button is not included
 - `class="centered"`: the CSS class to style the form, "centered" is built-in
 - `container=cell`: the function that each struct field control is wrapped with (for example `DOM.div`), `cell` is built-in
 - `buttons=[]`: add additional buttons along side `save` thru this keyword
 """
 function make_form(value::Observable{T}; save_function::Union{SaveFunction, Nothing}=nothing, class="centered", container=cell,  buttons=[]) where T
 
-    form = []
-
-    pnames = propertynames(value[])
-
-
     dirty = identity
-    
+
     if !isnothing(save_function)
         save_button = SLButton("save"; variant="primary", disabled=true)
 
-        dirty(x::Bool) = save_button.disabled[] = !x
+        function dirty(x::Bool)
+            save_button.disabled[] = !x
+            notify(value)
+        end
 
         on(save_button.value) do x
             save_button.loading[] = true
@@ -466,28 +611,10 @@ function make_form(value::Observable{T}; save_function::Union{SaveFunction, Noth
 
 
 
-    for name in pnames
-        if !skip_field(T, Val(name))
-
-            ftype = if hasfield(T, name)
-                fieldtype(T, name)
-            else
-                typeof(getproperty(value[], name))
-            end
-
-            # try specific field first
-            parts = make_control!(value, Val(name), dirty)
-                
-            # if nothing fall to generic type
-            if isnothing(parts)
-                parts = make_control!(value, ftype, name, dirty)
-            end
-
-            push!(form, container(parts...))
-        end
-    end
-
-
+    form = build_fields(value,
+        (v, key) -> make_control!(v, key, dirty),
+        (v, ftype, name) -> make_control!(v, ftype, name, dirty),
+        container)
 
     if !isempty(buttons)
         return DOM.div(form..., DOM.hr(), buttons...; class)
@@ -524,8 +651,86 @@ function make_form(file::String, T::Type)
     return make_form(Observable(value); file)
 end
 
+"""
+    make_view(value::Observable{T}; class="centered", container=cell) where T
+
+Builds a `div::Hyperscript.Node` displaying (read-only) the struct `value::T`. The
+view counterpart to [`make_form`](@ref): each field is rendered via `make_view!` and
+updates reactively when `value` is notified. The struct `value` must be wrapped in an
+`Observable`.
+
+## kwargs
+- `class="centered"`: the CSS class to style the view, "centered" is built-in
+- `container=cell`: the function that each field's parts are wrapped with (for example `DOM.div`), `cell` is built-in
+"""
+function make_view(value::Observable{T}; class="centered", container=cell) where T
+    form = build_fields(value, make_view!, make_view!, container)
+    return DOM.div(form...; class)
+end
+
+function make_view(file::String, T::Type)
+    value = JSON.parsefile(file, T)
+    return make_view(Observable(value))
+end
+
 @enum Mode vscode browser online quite
 
+# Wrap a form/view node in the standard HTML page (title, shoelace assets, style, favicon).
+function page(form; title, icon)
+    DOM.html(
+        DOM.head(
+            DOM.title(title),
+            get_shoelace()...,
+            DOM.style(STYLE_CSS),
+            DOM.link(; rel="icon", type="image/svg+xml", href=icon)
+        ),
+        DOM.body(
+            form
+        )
+    )
+end
+
+# Serve/return an App according to `mode`. Shared by editor and viewer.
+function run_app(app; mode, server, path)
+    if !isnothing(server)
+        route!(server, path => app);
+    end
+
+    if mode == vscode
+        return app
+    elseif mode == browser
+        if isnothing(server)
+            server = Bonito.Server(app, "0.0.0.0", 8080)
+        end
+        Bonito.HTTPServer.openurl(Bonito.HTTPServer.local_url(server, path))
+        return nothing
+    elseif mode == online
+        url = Bonito.HTTPServer.online_url(server, path)
+        return url
+    elseif mode == quite
+        return nothing
+    end
+end
+
+"""
+    editor(value; save_function=nothing, mode=vscode, server=nothing, path="/", icon, title, kwargs...)
+    editor(file::String, T::Type; mode=vscode, kwargs...)
+
+Opens an interactive editor for struct `value` (or for a value of type `T` loaded from the
+JSON `file`). The second form auto-creates a `SaveFunction` targeting `file`, so edits save
+back to it.
+
+## kwargs
+- `save_function::Union{SaveFunction, Nothing}=nothing`: see [`SaveFunction`](@ref); when `nothing` no save button is shown
+- `mode`: one of `StructEditor.vscode` (default), `browser`, `online`, or `quite`
+- `server`: an optional `Bonito.Server` to route the app onto
+- `path="/"`: route path when serving
+- `icon`: favicon URL (default https://icons.getbootstrap.com/assets/icons/pencil.svg)
+- `title=string(T)`: page title
+
+Remaining keywords (`class`, `container`, `buttons`) are forwarded to [`make_form`](@ref).
+See also [`viewer`](@ref) for a read-only display.
+"""
 function editor(file::String, T::Type; mode=vscode, kwargs...)
     value = JSON.parsefile(file, T)
     save_function=SaveFunction(;file)
@@ -543,38 +748,46 @@ function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, m
         obs_value = Observable(value)
         form = make_form(obs_value; save_function, kwargs...)
 
-        DOM.html(
-            DOM.head(
-                DOM.title(title),
-                get_shoelace()...,
-                DOM.style(STYLE_CSS),
-                DOM.link(; rel="icon", type="image/svg+xml", href=icon)
-            ),
-            DOM.body(
-                form
-            )
-        )
+        page(form; title, icon)
     end
 
-    if !isnothing(server)
-        route!(server, path => app);
+    return run_app(app; mode, server, path)
+end
+
+"""
+    viewer(value; mode=vscode, server=nothing, path="/", icon, title, kwargs...)
+    viewer(file::String, T::Type; mode=vscode, kwargs...)
+
+Opens a read-only display of struct `value` (or a value of type `T` loaded from the JSON
+`file`). The read-only counterpart to [`editor`](@ref): each field is rendered as labelled
+text via [`make_view!`](@ref) instead of an editing control, and there is no save button.
+
+## kwargs
+- `mode`: one of `StructEditor.vscode` (default), `browser`, `online`, or `quite`
+- `server`: an optional `Bonito.Server` to route the app onto
+- `path="/"`: route path when serving
+- `icon`: favicon URL (default https://icons.getbootstrap.com/assets/icons/eye.svg)
+- `title=string(T)`: page title
+
+Remaining keywords (`class`, `container`) are forwarded to [`make_view`](@ref).
+"""
+function viewer(file::String, T::Type; mode=vscode, kwargs...)
+    value = JSON.parsefile(file, T)
+    return viewer(value; mode, kwargs...)
+end
+
+function viewer(value::T; mode=vscode, server = nothing, path="/", icon="https://icons.getbootstrap.com/assets/icons/eye.svg", title=string(T), kwargs...) where T
+
+    app = App() do session
+
+        # Fresh Observables per session (same rationale as `editor`).
+        obs_value = Observable(value)
+        form = make_view(obs_value; kwargs...)
+
+        page(form; title, icon)
     end
 
-    if mode == vscode
-        return app
-    elseif mode == browser 
-        if isnothing(server)
-            server = Bonito.Server(app, "0.0.0.0", 8080)   
-        end                                                                                                                      
-        Bonito.HTTPServer.openurl(Bonito.HTTPServer.local_url(server, path))         
-        return nothing
-    elseif mode == online
-        url = Bonito.HTTPServer.online_url(server, path)
-        return url
-    elseif mode == quite
-        return nothing
-    end
-
+    return run_app(app; mode, server, path)
 end
 
 end # module StructEditor

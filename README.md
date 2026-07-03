@@ -1,6 +1,6 @@
 # StructEditor.jl
 
-StructEditor.jl generates interactive web-based forms for editing Julia structs. It automatically maps struct fields to appropriate UI controls (using [ShoelaceWidgets.jl](https://bradcarman.github.io/ShoelaceWidgets.jl/dev/)), and saves/loads the result to a JSON file.
+StructEditor.jl generates interactive web-based forms for editing Julia structs. It automatically maps struct fields to appropriate UI controls (using [ShoelaceWidgets.jl](https://bradcarman.github.io/ShoelaceWidgets.jl/dev/)), and saves/loads the result to a JSON file. A read-only `viewer` is also provided for displaying a struct without editing controls.
 
 Here is an example of the form generated straight out of the box using StructEditor.jl
 
@@ -10,11 +10,13 @@ Here is an example of the form generated straight out of the box using StructEdi
 
 - Automatically generates form controls based on field types:
   - `Bool` → checkbox
-  - `Number` / `String` → text input
+  - `Number` / `String` / `Symbol` → text input
+  - `Enum` → dropdown select
   - `Date` → date input
   - `Markdown.MD` → multi-line textarea
   - `Vector` → tree view with per-item dialogs for nested structs
-- Autoamitically builds control cards for child structs
+- Automatically builds control cards for child structs
+- Read-only `viewer` that displays the same struct without editing controls (fields render as labelled text via `make_view!`) and updates reactively when the underlying value changes
 - Loads and saves struct data as JSON
 - Renders in VS Code (default) or a browser
 
@@ -48,11 +50,17 @@ end
 
 file = joinpath(@__DIR__, "All.json")
 
-# Edit a new value in VS Code
-editor(All(); file)
+# Edit a new value in VS Code, saving to `file` when the save button is clicked
+editor(All(); save_function = StructEditor.SaveFunction(; file))
 
 # Load an existing JSON file and open in the browser
 editor(file, All; mode = StructEditor.browser)
+
+# Display a value read-only (no editing controls, no save button)
+viewer(All())
+
+# Or load and display an existing JSON file
+viewer(file, All)
 ```
 
 For more advanced examples: 
@@ -64,24 +72,73 @@ For more advanced examples:
 
 ## API
 
-### `editor(value; file, mode, kwargs...)`
+### editor
+```julia
+editor(value; save_function=nothing, mode=vscode, server=nothing, path="/", icon, title, kwargs...)
+editor(file::String, T::Type; mode=vscode, kwargs...)
+```
 
-Opens an editor for `value` (a struct instance). Changes are saved to `file` when the **save** button is clicked.
+Opens an interactive editor for struct `value` (or for a value of type `T` loaded from the JSON `file`). The second form auto-creates a `SaveFunction` targeting `file`, so edits save back to it.
 
-- `file`: path to the JSON file (default: `"value.json"`), if empty the `save` button is not included
-- `mode`: `StructEditor.vscode` (default) or `StructEditor.browser`
+#### kwargs
 
-Additional keywords are passed to `StructEditor.make_form`...
-- `class`: the CSS class to style the form (default: "centered", a built-in style)
-- `container`: the function that each struct field control is wrapped with (default: `cell` is built-in, a styled `DOM.div`)
-- `buttons`: add additional buttons along side `save` thru this keyword (default: empty array `[]`)
+  * `save_function::Union{SaveFunction, Nothing}=nothing`: see [`SaveFunction`](@ref); when `nothing` no save button is shown
+  * `mode`: one of `StructEditor.vscode` (default), `browser`, `online`, or `quite`
+  * `server`: an optional `Bonito.Server` to route the app onto
+  * `path="/"`: route path when serving
+  * `icon`: favicon URL (default https://icons.getbootstrap.com/assets/icons/pencil.svg)
+  * `title=string(T)`: page title
 
-### `editor(file, T; mode, kwargs...)`
+Remaining keywords (`class`, `container`, `buttons`) are forwarded to [`make_form`](@ref). See also [`viewer`](@ref) for a read-only display.
 
-Loads a struct of type `T` from a `file` path and opens an editor for it.
 
-### `StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol)`
 
-By defining `make_control!` for your type `T`, customization is possible.  See "examples/pets.jl" for an example of how this can be implemented.
+
+### viewer
+```julia
+viewer(value; mode=vscode, server=nothing, path="/", icon, title, kwargs...)
+viewer(file::String, T::Type; mode=vscode, kwargs...)
+```
+
+Opens a read-only display of struct `value` (or a value of type `T` loaded from the JSON `file`). The read-only counterpart to [`editor`](@ref): each field is rendered as labelled text via [`make_view!`](@ref) instead of an editing control, and there is no save button.
+
+#### kwargs
+
+  * `mode`: one of `StructEditor.vscode` (default), `browser`, `online`, or `quite`
+  * `server`: an optional `Bonito.Server` to route the app onto
+  * `path="/"`: route path when serving
+  * `icon`: favicon URL (default https://icons.getbootstrap.com/assets/icons/eye.svg)
+  * `title=string(T)`: page title
+
+Remaining keywords (`class`, `container`) are forwarded to [`make_view`](@ref).
+
+### StructEditor.SaveFunction
+```julia
+SaveFunction(; file=nothing, func=nothing)
+```
+
+Describes what an [`editor`](@ref)'s `save` button does. Supplying a `SaveFunction` to `editor` (or `make_form`) is what enables the save button; both fields default to `nothing`:
+
+  * `file`: path to the JSON file `value` is written to on save
+  * `func`: a zero-argument function called on save (e.g. to trigger downstream side effects)
+
+Pass either or both.
+
+
+### StructEditor.make_control!
+```julia
+make_control!(value::Observable, ::Val, dirty=identity)
+```
+
+Defined to dispatch to a specific field `Val(field)`, generic definition defaults to nothing and falls to `make_control!(value::Observable, ::Type{T}, sname::Symbol) where T`
+
+
+### StructEditor.make_view!
+```julia
+make_view!(value::Observable, ::Val)
+```
+
+Field-specific dispatch hook (mirrors the `make_control!(::Val)` hook). The generic definition returns `nothing`, falling through to the type-based `make_view!`.
+
 
 
