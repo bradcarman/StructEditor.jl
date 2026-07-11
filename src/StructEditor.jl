@@ -95,7 +95,7 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
 
     
     
-    y = SLInput(val; label=name, help=h)
+    y = SLInput(val; label=name, help=h, select_on_focus=true)
     on(y.value) do x
 
         # println(":: y ($name): $x")
@@ -117,7 +117,7 @@ function make_control!(value::Observable, ::Type{String}, sname::Symbol, dirty=i
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
 
-    y = SLInput(val; label=name, help=h)
+    y = SLInput(val; label=name, help=h, select_on_focus=true)
     on(y.value) do x
         # println(":: y ($name): $x")
         if ismutable(value[])
@@ -137,7 +137,7 @@ function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol, dirty=i
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
 
-    y = SLInput(string(val); label=name, help=h)
+    y = SLInput(string(val); label=name, help=h, select_on_focus=true)
     on(y.value) do x
         # println(":: y ($name): $x")
         if ismutable(value[])
