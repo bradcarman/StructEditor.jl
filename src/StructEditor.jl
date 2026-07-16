@@ -742,7 +742,12 @@ function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, m
         # widgets carry mutable per-session state, so a form shared across sessions
         # breaks on the 2nd open (e.g. an SLSelect's value binding collides and the
         # client sends NaN on change). Constructing inside the closure isolates each open.
-        obs_value = Observable(value)
+        #
+        # `deepcopy` is essential: `Observable(x)` stores a *reference*, so without it
+        # every session would share the same underlying struct. For mutable structs the
+        # controls mutate in place (`setproperty!`), which would leak edits across all
+        # open browser windows.
+        obs_value = Observable(deepcopy(value))
         form = make_form(obs_value; save_function, kwargs...)
 
         page(form; title, icon)
@@ -777,8 +782,9 @@ function viewer(value::T; mode=vscode, server = nothing, path="/", icon="https:/
 
     app = App() do session
 
-        # Fresh Observables per session (same rationale as `editor`).
-        obs_value = Observable(value)
+        # Fresh Observables per session (same rationale as `editor`, including the
+        # `deepcopy` so sessions never share the same underlying struct).
+        obs_value = Observable(deepcopy(value))
         form = make_view(obs_value; kwargs...)
 
         page(form; title, icon)
