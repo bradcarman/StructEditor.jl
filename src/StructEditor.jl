@@ -59,34 +59,62 @@ const STYLE_CSS = """
 
 help(::Type, ::Val) = ""
 
+"""
+    bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty=identity;
+                to_field=identity, to_widget=identity, valid=(x -> true), same=...)
+
+Two-way bind a widget's value Observable `wvalue` to field `sname` of the struct held by
+`value`. Every `make_control!` method binds through here, so a control both writes its
+field and re-seeds itself whenever `value` changes from elsewhere: a parent struct, a
+file load, or the `ListManager` item dialog re-seeding its form.
+
+- `to_field(wval)` converts what the widget fires into the field's type
+- `to_widget(field)` is the inverse, converting the field into what the widget holds
+- `valid(wval)` rejects widget values that must not be written (e.g. a cleared selection)
+- `same(field, wval)` asks whether the widget already represents that field value
+
+`same` is what breaks the update cycle. Both handlers bail out when it holds, so the echo
+from the opposite direction terminates instead of recursing, and a programmatic change to
+`value` does not mark the form dirty. It defaults to comparing in widget space, which
+assumes `to_widget ∘ to_field` round-trips; where that does not hold (`Markdown.MD`, whose
+`to_widget` reformats the text) pass a comparison in field space instead.
+"""
+function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty=identity;
+                     to_field=identity,
+                     to_widget=identity,
+                     valid=(x -> true),
+                     same=((field, wval) -> isequal(to_widget(field), wval)))
+
+    on(wvalue) do x
+        valid(x) || return
+        same(getproperty(value[], sname), x) && return  # echo of the sync below
+
+        new = to_field(x)
+        if ismutable(value[])
+            setproperty!(value[], sname, new)
+        else
+            value[] = set(value[], PropertyLens(sname), new)
+        end
+
+        dirty(true)
+    end
+
+    # `value` changed elsewhere, so re-seed the widget from the field
+    on(value) do v
+        field = getproperty(v, sname)
+        same(field, wvalue[]) || (wvalue[] = to_widget(field))
+    end
+
+    return wvalue
+end
+
 function make_control!(value::Observable, ::Type{Bool}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
 
     checkbox = SLCheckbox(name; checked=val, help=h)
-    update = true
-    on(checkbox.value) do x
-
-        !update && return
-        
-        # println(":: checkbox ($name): $x")
-        if ismutable(value[])
-            setproperty!(value[], sname, x)
-        else
-            value[] = set(value[], PropertyLens(sname), x)
-        end
-
-        dirty(true)
-        
-    end
-
-    # sync
-    on(value) do x
-        update = false
-        checkbox.value[] = getproperty(value[], sname)
-        update = true
-    end
+    bind_field!(value, sname, checkbox.value, dirty)
 
     return [checkbox]
 end
@@ -109,28 +137,7 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
     
     
     y = SLInput(val; label=name, help=h, select_on_focus=true)
-    update = true
-    on(y.value) do x
-
-        !update && return
-
-        # println(":: y ($name): $x")
-        if ismutable(value[])
-            setproperty!(value[], sname, T(x))
-        else
-            value[] = set(value[], PropertyLens(sname), T(x))
-        end
-
-        
-        dirty(true)
-    end
-
-    # sync
-    on(value) do x
-        update = false
-        y.value[] = getproperty(value[], sname)
-        update = true
-    end
+    bind_field!(value, sname, y.value, dirty; to_field=T)
 
     return [y]
 end
@@ -141,27 +148,7 @@ function make_control!(value::Observable, ::Type{String}, sname::Symbol, dirty=i
     h = help(typeof(value[]), Val(sname) )
 
     y = SLInput(val; label=name, help=h, select_on_focus=true)
-    update = true
-    on(y.value) do x
-
-        !update && return 
-
-        # println(":: y ($name): $x")
-        if ismutable(value[])
-            setproperty!(value[], sname, x)
-        else
-            value[] = set(value[], PropertyLens(sname), x)
-        end
-        
-        dirty(true)
-    end
-
-    # sync
-    on(value) do x
-        update = false
-        y.value[] = getproperty(value[], sname)
-        update = true
-    end
+    bind_field!(value, sname, y.value, dirty)
 
     return [y]
 end
@@ -172,16 +159,7 @@ function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol, dirty=i
     h = help(typeof(value[]), Val(sname) )
 
     y = SLInput(string(val); label=name, help=h, select_on_focus=true)
-    on(y.value) do x
-        # println(":: y ($name): $x")
-        if ismutable(value[])
-            setproperty!(value[], sname, Symbol(x))
-        else
-            value[] = set(value[], PropertyLens(sname), Symbol(x))
-        end
-
-        dirty(true)
-    end
+    bind_field!(value, sname, y.value, dirty; to_field=Symbol, to_widget=string)
 
     return [y]
 end
@@ -195,18 +173,12 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
     select = SLSelect([string(x) for x in opts]; label=name, help=h)
     select.index[] = something(findfirst(==(val), opts), 1)
 
-    on(select.index) do i
-        # println(":: select ($name): $i")
-        i < 1 && return
-        newval = opts[i]
-        if ismutable(value[])
-            setproperty!(value[], sname, newval)
-        else
-            value[] = set(value[], PropertyLens(sname), newval)
-        end
-
-        dirty(true)
-    end
+    # widget space here is the 1-based option index; `valid` keeps a cleared selection
+    # (index 0) from indexing `opts` out of bounds
+    bind_field!(value, sname, select.index, dirty;
+                to_field = i -> opts[i],
+                to_widget = v -> something(findfirst(==(v), opts), 1),
+                valid = i -> 1 <= i <= length(opts))
 
     return [select]
 end
@@ -216,18 +188,9 @@ function make_control!(value::Observable, ::Type{Date}, sname::Symbol, dirty=ide
     val = getproperty(value[], sname)
     h = help(typeof(value[]), Val(sname) )
 
+    # SLInput(::Date) builds an SLInput{String}, so widget space is the date string
     y = SLInput(val; label=name, help=h)
-    on(y.value) do x
-        # println(":: y ($name): $x type $(typeof(x))")
-        if ismutable(value[])
-            setproperty!(value[], sname, Date(x))
-        else
-            value[] = set(value[], PropertyLens(sname), Date(x))
-        end
-
-        
-        dirty(true)
-    end
+    bind_field!(value, sname, y.value, dirty; to_field=Date, to_widget=string)
 
     return [y]
 end
@@ -239,16 +202,13 @@ function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol, di
     
     sval = Markdown.plain(val)
     y = SLTextarea(sval; label=name, rows=max(5, min(count('\n', sval) + 1, 20)), help=h)
-    on(y.value) do x
-        # println(":: y ($name): $x type $(typeof(x))")
-        if ismutable(value[])
-            setproperty!(value[], sname, Markdown.parse(x))
-        else
-            value[] = set(value[], PropertyLens(sname), Markdown.parse(x))
-        end
 
-        dirty(true)
-    end
+    # Markdown.plain reformats, so the widget-space default would rewrite the user's text
+    # back at them on every commit; comparing parsed values keeps what they typed
+    bind_field!(value, sname, y.value, dirty;
+                to_field = Markdown.parse,
+                to_widget = Markdown.plain,
+                same = (field, wval) -> isequal(field, Markdown.parse(wval)))
 
     return [y]
 end
@@ -259,32 +219,29 @@ function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol, dirt
     h = help(typeof(value[]), Val(sname) )
 
     y = SLInput(join(string.(val),','); label=name, help=h)
-    on(y.value) do data
-        # println(":: y ($name): $x")
-        if ismutable(value[])
-            if isempty(data)
-                setproperty!(value[], sname, T[])
-            else
-                setproperty!(value[], sname, map(x->parse(T, x), split(data,',')))
-            end
-        else
-            value[] = if isempty(data)
-                set(value[], PropertyLens(sname), T[])
-            else
-                set(value[], PropertyLens(sname), map(x->parse(T, x), split(data,',')))
-            end
-        end
-        
-        dirty(true)
-    end
+    bind_field!(value, sname, y.value, dirty;
+                to_field = data -> isempty(data) ? T[] : map(x->parse(T, x), split(data,',')),
+                to_widget = v -> join(string.(v), ','))
 
     return [y]
 end
 
-
+# ------------------------------------------------------------
+# Support Functions for Vector Add and Edit
+# ------------------------------------------------------------
 add_function(::Type{T}, session::Session) where T = T()
 add_mode(::Type{T}) where T = ShoelaceWidgets.FunctionMode
 add_content(::Type{T}) where T = DOM.div()
+
+edit_observable(::Type{T}) where T = Observable(T())
+function edit_function(::Type{T}, value::Observable, m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel) where T
+    if action == ShoelaceWidgets.Open
+        value[] =  ShoelaceWidgets.selected_value(m)
+    elseif action == ShoelaceWidgets.OK
+        ShoelaceWidgets.replace_selected!(m, value[])
+    end
+end
+edit_content(::Type{T}, value::Observable) where T = DOM.div(make_form(value; class=""))
 
 function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty=identity)
     name = string(sname)
@@ -292,26 +249,22 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
     T = eltype(val)
     h = help(typeof(value[]), Val(sname))
 
-    edit_obs = Observable(T())
-    edit_form = make_form(edit_obs; class="")
+    edit_obs = edit_observable(T)
 
-    function edit_item(m, action)
-        if action == Open
-            edit_obs[] =  ShoelaceWidgets.selected_value(m)
-        elseif action == OK
-            ShoelaceWidgets.replace_selected!(m, edit_obs[])
-        end
-        # Cancel needs no branch: the copy is simply dropped
-    end
+    edit_funT = Base.Fix1(edit_function, T)
+    edit_funV = Base.Fix1(edit_funT, edit_obs)
 
     y = ListManager(val; 
                     label=name,
                     help=h,
+                    
                     add_mode=add_mode(T),
                     add_function=Base.Fix1(add_function, T),
                     add_content=add_content(T),
-                    edit_function=edit_item,
-                    edit_content=edit_form,
+
+                    edit_function=edit_funV,
+                    edit_content=edit_content(T, edit_obs),
+                    
                     dialog_label=string(T),
                     dialog_style="--width: 75vw;",
                     list_style="height: 40vh; overflow-y: auto; padding: 5px; border: 1px solid lightgray;")
@@ -331,12 +284,12 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
         dirty(true)
     end
 
-    # ListManager's own add handler is registered first, so the new item is already
-    # appended by the time this selects it, ready for the edit button
-    on(y.add.value) do session
-        isnothing(session) && return
-        isempty(y) || (y.list.index = length(y))
-    end
+    # # ListManager's own add handler is registered first, so the new item is already
+    # # appended by the time this selects it, ready for the edit button
+    # on(y.add.value) do session
+    #     isnothing(session) && return
+    #     isempty(y) || (y.list.index = length(y))
+    # end
 
     return [y]
 end
@@ -374,15 +327,9 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
 
         y = sl_card(form; style="width:100%;")
 
-        on(ref) do x
-            if ismutable(value[])
-                setproperty!(value[], sname, ref[])
-            else
-                value[] = set(value[], PropertyLens(sname), ref[])
-            end
-
-            dirty(true)
-        end
+        # `ref` is this field's widget: binding it means a change to `value` re-seeds
+        # `ref`, which cascades into the nested controls' own sync handlers
+        bind_field!(value, sname, ref, dirty)
 
         return [label, DOM.div(y)]
     else
