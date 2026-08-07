@@ -92,10 +92,8 @@ end
         @test controls[1] isa SLTextarea
 
         controls = StructEditor.make_control!(obs, Vector{TestPerson}, :items)
-        @test length(controls) == 3
-        @test controls[1] isa SLList
-        # @test controls[2] isa SLButton
-        @test controls[3] isa SLDialog
+        @test length(controls) == 1
+        @test controls[1] isa ListManager
     end
 
     @testset "callbacks" begin
@@ -140,6 +138,40 @@ end
         textarea = StructEditor.make_control!(obs, Markdown.MD, :notes)[1]
         textarea.value[] = "# New\n"
         @test Markdown.plain(obs[].notes) == Markdown.plain(Markdown.parse("# New\n"))
+
+        # Vector: the ListManager is the source of truth and syncs the field on
+        # every structural change
+        obs = Observable(TestAll())
+        manager = StructEditor.make_control!(obs, Vector{TestPerson}, :items)[1]
+        @test [p.name for p in obs[].items] == ["Alice"]
+
+        push!(manager, TestPerson("Bob", 2))
+        @test [p.name for p in obs[].items] == ["Alice", "Bob"]
+        @test obs[].items isa Vector{TestPerson}
+
+        # reordering writes the new order back
+        manager.list.index = 2
+        ShoelaceWidgets.move_up!(manager)
+        @test [p.name for p in obs[].items] == ["Bob", "Alice"]
+        @test ShoelaceWidgets.selected_index(manager) == 1
+
+        # the edit dialog commits on OK and discards on Cancel
+        ShoelaceWidgets.open_editor!(manager)
+        ShoelaceWidgets.accept!(manager.dialog)
+        @test [p.name for p in obs[].items] == ["Bob", "Alice"]
+
+        ShoelaceWidgets.open_editor!(manager)
+        ShoelaceWidgets.reject!(manager.dialog)
+        @test [p.name for p in obs[].items] == ["Bob", "Alice"]
+
+        # delete and clear
+        manager.list.index = 1
+        ShoelaceWidgets.delete_selected!(manager)
+        @test [p.name for p in obs[].items] == ["Alice"]
+
+        empty!(manager)
+        @test isempty(obs[].items)
+        @test obs[].items isa Vector{TestPerson}
     end
 
     @testset "make_form and editor" begin

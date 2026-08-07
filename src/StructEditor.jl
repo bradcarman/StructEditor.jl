@@ -2,6 +2,7 @@ module StructEditor
 using Dates
 using Markdown
 using ShoelaceWidgets
+using ShoelaceWidgets: get_values, replace_selected!, Open, OK
 using Bonito
 using Accessors
 using JSON
@@ -64,7 +65,11 @@ function make_control!(value::Observable, ::Type{Bool}, sname::Symbol, dirty=ide
     h = help(typeof(value[]), Val(sname) )
 
     checkbox = SLCheckbox(name; checked=val, help=h)
+    update = true
     on(checkbox.value) do x
+
+        !update && return
+        
         # println(":: checkbox ($name): $x")
         if ismutable(value[])
             setproperty!(value[], sname, x)
@@ -73,6 +78,14 @@ function make_control!(value::Observable, ::Type{Bool}, sname::Symbol, dirty=ide
         end
 
         dirty(true)
+        
+    end
+
+    # sync
+    on(value) do x
+        update = false
+        checkbox.value[] = getproperty(value[], sname)
+        update = true
     end
 
     return [checkbox]
@@ -96,7 +109,10 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
     
     
     y = SLInput(val; label=name, help=h, select_on_focus=true)
+    update = true
     on(y.value) do x
+
+        !update && return
 
         # println(":: y ($name): $x")
         if ismutable(value[])
@@ -109,6 +125,13 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
         dirty(true)
     end
 
+    # sync
+    on(value) do x
+        update = false
+        y.value[] = getproperty(value[], sname)
+        update = true
+    end
+
     return [y]
 end
 
@@ -118,7 +141,11 @@ function make_control!(value::Observable, ::Type{String}, sname::Symbol, dirty=i
     h = help(typeof(value[]), Val(sname) )
 
     y = SLInput(val; label=name, help=h, select_on_focus=true)
+    update = true
     on(y.value) do x
+
+        !update && return 
+
         # println(":: y ($name): $x")
         if ismutable(value[])
             setproperty!(value[], sname, x)
@@ -127,6 +154,13 @@ function make_control!(value::Observable, ::Type{String}, sname::Symbol, dirty=i
         end
         
         dirty(true)
+    end
+
+    # sync
+    on(value) do x
+        update = false
+        y.value[] = getproperty(value[], sname)
+        update = true
     end
 
     return [y]
@@ -247,99 +281,64 @@ function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol, dirt
     return [y]
 end
 
+
+add_function(::Type{T}, session::Session) where T = T()
+add_mode(::Type{T}) where T = ShoelaceWidgets.FunctionMode
+add_content(::Type{T}) where T = DOM.div()
+
 function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     T = eltype(val)
     h = help(typeof(value[]), Val(sname))
 
-    i=1 
-    ref = Observable{T}()
-    
-    dialog = SLDialog(DOM.div("---"); label=string(T), style="--width: 75vw;")
+    edit_obs = Observable(T())
+    edit_form = make_form(edit_obs; class="")
 
-
-
-    items = SLListItem[]
-    
-    for (i,item) in enumerate(val)
-        label = "$item"
-        push!(items, SLListItem(label))
-       
-    end
-    # label = DOM.label(name; class="shoelace-label")
-    y = SLList(items; label=name, help=h)
-
-    updating = false
-    on(dialog.open) do o
-        if o # dialog opening
-            i = y.index    
-            if !isnothing(i) && (i > 0)
-                ref = Observable(val[i])
-                dialog.value[] = make_form(ref; class="")
-            else
-                dialog.value[] = DOM.div("error")
-            end
-        else # dialog closing
-            # update item...
-            updating = true
-            i = y.index    
-            if !isnothing(i) && (i > 0)
-                getproperty(value[], sname)[i] = ref[]
-                insert!(y, i, ShoelaceWidgets.SLListItem("$(ref[])"))
-                popat!(y, i+1)
-                notify(value) # also notify the parent that the list changed
-                y.index = i
-                dirty(true)
-            end
-            updating = false
+    function edit_item(m, action)
+        if action == Open
+            edit_obs[] =  ShoelaceWidgets.selected_value(m)
+        elseif action == OK
+            ShoelaceWidgets.replace_selected!(m, edit_obs[])
         end
+        # Cancel needs no branch: the copy is simply dropped
     end
 
-    # add an item to the list
-    add = SLButton("add"; variant="text", size="small")
-    on(add.value) do x
-        item = T() #<-- type must have a default constructor
-        push!(val, item) 
-        push!(y, ShoelaceWidgets.SLListItem("$item"))
-        y.index = length(val)
+    y = ListManager(val; 
+                    label=name,
+                    help=h,
+                    add_mode=add_mode(T),
+                    add_function=Base.Fix1(add_function, T),
+                    add_content=add_content(T),
+                    edit_function=edit_item,
+                    edit_content=edit_form,
+                    dialog_label=string(T),
+                    dialog_style="--width: 75vw;",
+                    list_style="height: 40vh; overflow-y: auto; padding: 5px; border: 1px solid lightgray;")
+
+    # The list is the source of truth from here on. Every structural change (add,
+    # delete, clear, reorder, edit commit) notifies `values`, so this one handler
+    # covers them all; registering it after construction keeps the initial seeding
+    # of `val` from firing a spurious `dirty`.
+    on(y.list.values) do _
+        newval = get_values(y)
+        if ismutable(value[])
+            setproperty!(value[], sname, newval)
+        else
+            value[] = set(value[], PropertyLens(sname), newval)
+        end
+
         dirty(true)
     end
 
-    edit = SLButton("edit"; variant="text", size="small", disabled=true)
-    on(edit.value) do x
-        i = y.index    
-        if !isnothing(i) && (i > 0)
-            dialog.open[] = true
-        end
+    # ListManager's own add handler is registered first, so the new item is already
+    # appended by the time this selects it, ready for the edit button
+    on(y.add.value) do session
+        isnothing(session) && return
+        isempty(y) || (y.list.index = length(y))
     end
 
-    delete = SLButton("delete"; variant="text", size="small", disabled=true)
-    on(delete.value) do x
-        i = y.index    
-        if !isnothing(i) && (i > 0)
-            popat!(val, i)
-            popat!(y, i)
-            notify(y.value)
-            dirty(true)
-        end
-    end
-
-    # selection changed, open editor
-    on(y.value) do x
-        if !updating
-            i = y.index
-            if !isnothing(i) && (i > 0)
-                delete.disabled[] = false
-                edit.disabled[] = false
-            else
-                delete.disabled[] = true
-                edit.disabled[] = true
-            end
-        end
-    end
-
-    return [y, DOM.div(add, edit, delete), dialog]
+    return [y]
 end
 
 function iscomposite(T::Type)
