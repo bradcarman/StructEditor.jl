@@ -59,6 +59,8 @@ const STYLE_CSS = """
 
 help(::Type, ::Val) = ""
 
+change_callback(value::T, ::Val) where T = nothing
+
 """
     bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty=identity;
                 to_field=identity, to_widget=identity, valid=(x -> true), same=...)
@@ -105,6 +107,7 @@ function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty
             value[] = set(value[], PropertyLens(sname), new)
         end
 
+        change_callback(value[], Val(sname))
         dirty(true)
     end
 
@@ -241,7 +244,7 @@ end
 # ------------------------------------------------------------
 # Support Functions for Vector Add and Edit
 # ------------------------------------------------------------
-add_function(::Type{T}, session::Session) where T = T()
+add_function(::Type{T}, session::Session) where T = T() #add_function(session)::T or add_function(manager, action) on Open ::Hyperscript.Node, on OK ::T
 add_mode(::Type{T}) where T = ShoelaceWidgets.FunctionMode
 add_content(::Type{T}) where T = DOM.div()
 
@@ -311,6 +314,7 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
             value[] = set(value[], PropertyLens(sname), newval)
         end
 
+        change_callback(value[], Val(sname))
         dirty(true)
     end
 
