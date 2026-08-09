@@ -271,6 +271,62 @@ end
         @test Markdown.plain(obs[].notes) == Markdown.plain(Markdown.parse("# New"))
     end
 
+    @testset "notify mid-edit" begin
+        # A handler on the same widget that notifies `value` before the binding has
+        # written the field leaves the widget ahead of its field. The sync must not
+        # treat the stale field as authoritative and push it back over the widget --
+        # doing so re-enters the widget's handlers and replays the edit. Regression
+        # for a select whose handler appended to a second field: picking "B" once
+        # produced ["B", "A", "B"].
+        obs = Observable(TestSync())
+        select = StructEditor.make_control!(obs, TestColor, :color)[1]
+
+        seen = String[]
+        on(select.index) do i          # registered BEFORE the binding below
+            i > 0 && (push!(seen, string(instances(TestColor)[i])); notify(obs))
+        end
+        StructEditor.bind_field!(obs, :color, select.index;
+                                 to_field = i -> instances(TestColor)[i],
+                                 to_widget = v -> something(findfirst(==(v), instances(TestColor)), 1),
+                                 valid = i -> 1 <= i <= length(instances(TestColor)))
+
+        select.index[] = 2
+        @test seen == ["Green"]        # fired once, not three times
+        @test obs[].color == Green
+        @test select.index[] == 2      # and the widget was not rolled back
+
+        select.index[] = 3
+        @test seen == ["Green", "Blue"]
+        @test obs[].color == Blue
+    end
+
+    @testset "vector sync" begin
+        # The list mirrors its field both ways, and a change to an unrelated field
+        # must not rebuild it (which would drop the user's selection).
+        obs = Observable(TestAll())
+        manager = StructEditor.make_control!(obs, Vector{TestPerson}, :items)[1]
+
+        # field changed elsewhere: the list rebuilds from it
+        obs[] = TestAll(items=[TestPerson("Bob", 2), TestPerson("Cleo", 3)])
+        @test [p.name for p in ShoelaceWidgets.get_values(manager)] == ["Bob", "Cleo"]
+
+        # an unrelated field moving leaves the list and its selection alone
+        manager.list.index = 2
+        obs[] = TestAll(count=99, items=obs[].items)
+        @test ShoelaceWidgets.selected_index(manager) == 2
+        @test [p.name for p in ShoelaceWidgets.get_values(manager)] == ["Bob", "Cleo"]
+
+        # in-place mutation of the field vector is still picked up, because `seen`
+        # holds a copy rather than aliasing the field
+        push!(obs[].items, TestPerson("Dee", 4))
+        notify(obs)
+        @test [p.name for p in ShoelaceWidgets.get_values(manager)] == ["Bob", "Cleo", "Dee"]
+
+        # and the control direction still writes through
+        ShoelaceWidgets.delete_selected!(manager)
+        @test [p.name for p in obs[].items] == ["Bob", "Dee"]
+    end
+
     @testset "make_form and editor" begin
         obs = Observable(TestAll())
 

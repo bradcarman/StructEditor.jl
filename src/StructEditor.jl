@@ -85,11 +85,20 @@ function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty
                      valid=(x -> true),
                      same=((field, wval) -> isequal(to_widget(field), wval)))
 
+    # The field value this binding last saw. `value` notifies whenever *any* field
+    # changes, so the sync below must react only when its own field actually moved.
+    # Without this it also fires on a notify raised mid-edit -- while the widget has
+    # already changed but this binding has not written the field yet -- reads the
+    # stale field as authoritative, and pushes it back over the user's input.
+    seen = Ref{Any}(getproperty(value[], sname))
+
     on(wvalue) do x
         valid(x) || return
-        same(getproperty(value[], sname), x) && return  # echo of the sync below
+        field = getproperty(value[], sname)
+        same(field, x) && return  # echo of the sync below
 
         new = to_field(x)
+        seen[] = new              # this binding is the author of the change
         if ismutable(value[])
             setproperty!(value[], sname, new)
         else
@@ -99,9 +108,12 @@ function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty
         dirty(true)
     end
 
-    # `value` changed elsewhere, so re-seed the widget from the field
+    # this binding's field changed elsewhere, so re-seed the widget from it
     on(value) do v
         field = getproperty(v, sname)
+        isequal(seen[], field) && return  # some other field moved, not ours
+        seen[] = field
+
         same(field, wvalue[]) || (wvalue[] = to_widget(field))
     end
 
@@ -234,6 +246,7 @@ add_mode(::Type{T}) where T = ShoelaceWidgets.FunctionMode
 add_content(::Type{T}) where T = DOM.div()
 
 edit_observable(::Type{T}) where T = Observable(T())
+edit_observable(::Type{String}) = Observable("")
 function edit_function(::Type{T}, value::Observable, m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel) where T
     if action == ShoelaceWidgets.Open
         value[] =  ShoelaceWidgets.selected_value(m)
@@ -243,20 +256,28 @@ function edit_function(::Type{T}, value::Observable, m::ShoelaceWidgets.ListMana
 end
 edit_content(::Type{T}, value::Observable) where T = DOM.div(make_form(value; class=""))
 
+item_function(x::T) where T = SLListItem(DOM.div(x); object=x)
+get_function(::Type{T}, x::SLListItem) where T = x.object
+
 function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(value[], sname)
     T = eltype(val)
     h = help(typeof(value[]), Val(sname))
 
+    
     edit_obs = edit_observable(T)
 
     edit_funT = Base.Fix1(edit_function, T)
     edit_funV = Base.Fix1(edit_funT, edit_obs)
 
+
     y = ListManager(val; 
                     label=name,
                     help=h,
+
+                    item_function=item_function,
+                    get_function= Base.Fix1(get_function, T),
                     
                     add_mode=add_mode(T),
                     add_function=Base.Fix1(add_function, T),
@@ -269,12 +290,21 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
                     dialog_style="--width: 75vw;",
                     list_style="height: 40vh; overflow-y: auto; padding: 5px; border: 1px solid lightgray;")
 
-    # The list is the source of truth from here on. Every structural change (add,
-    # delete, clear, reorder, edit commit) notifies `values`, so this one handler
-    # covers them all; registering it after construction keeps the initial seeding
-    # of `val` from firing a spurious `dirty`.
+    # The same two-way binding `bind_field!` does, but the widget here is the whole
+    # list rather than a single value Observable. `seen` holds a *copy* so that a
+    # caller mutating the field vector in place (`push!(value[].items, x)`) still
+    # registers as a change; aliasing it would compare equal and miss the update.
+    seen = Ref{Any}(copy(val))
+    updating = false
+
+    # Every structural change (add, delete, clear, reorder, edit commit) notifies
+    # `values`, so this one handler covers them all; registering it after construction
+    # keeps the initial seeding of `val` from firing a spurious `dirty`.
     on(y.list.values) do _
+        updating && return  # mid-rebuild, the list is not a complete value yet
+
         newval = get_values(y)
+        seen[] = copy(newval)
         if ismutable(value[])
             setproperty!(value[], sname, newval)
         else
@@ -282,6 +312,23 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
         end
 
         dirty(true)
+    end
+
+    # this field changed elsewhere, so rebuild the list from it
+    on(value) do v
+        field = getproperty(v, sname)
+        isequal(seen[], field) && return  # some other field moved, not ours
+        seen[] = copy(field)
+
+        i = y.list.index  # rebuilding drops the selection, so put it back
+        updating = true
+        try
+            empty!(y)
+            append!(y, field)
+        finally
+            updating = false
+        end
+        isnothing(i) || (1 <= i <= length(y)) && (y.list.index = i)
     end
 
     # # ListManager's own add handler is registered first, so the new item is already
