@@ -37,10 +37,10 @@ file=joinpath(@__DIR__, "pets.json")
 # end
 # value = JSON.parsefile(file, Household)
 
-function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: Animal
+function StructEditor.make_control!(state::StructEditor.ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T <: Animal
     name = string(sname)
-    val = getproperty(value[], sname)
-    local ref::Observable
+    val = getproperty(state.value[], sname)
+    local ref::StructEditor.ApplicationState
     select = SLSelect(["Dog","Cat"]; label=name)
 
     if val isa Dog
@@ -51,9 +51,9 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol,
 
     on(select.index) do i
         if i == 1
-            value[] = set(value[], PropertyLens(sname), Dog("",0))
+            state.value[] = set(state.value[], PropertyLens(sname), Dog("",0))
         elseif i == 2
-            value[] = set(value[], PropertyLens(sname), Cat("",false))
+            state.value[] = set(state.value[], PropertyLens(sname), Cat("",false))
         end
         
         dirty(true)
@@ -65,16 +65,16 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol,
 
     on(dialog.open) do o
         if !o
-            value[] = set(value[], PropertyLens(sname), ref[])
+            state.value[] = set(state.value[], PropertyLens(sname), ref.value[])
 
             dirty(true)
         end
     end
     
     on(button.value) do x
-        val = getproperty(value[], sname)
-        ref = Observable(val)
-        dialog.value[] = DOM.div(StructEditor.make_form(ref; class=""))
+        val = getproperty(state.value[], sname)
+        ref = StructEditor.ApplicationState(Observable(val), Dict())        
+        dialog.value[] = StructEditor.make_form(ref; class="")
         dialog.open[] = true
     end
 

@@ -40,15 +40,15 @@ viewer(file, Team)
 
 using WGLMakie
 sname = :people
-function StructEditor.make_control!(value::Observable, ::Val{sname}, dirty=identity)
+function StructEditor.make_control!(state::StructEditor.ApplicationState, ::Val{sname}, dirty=identity)
     
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     type = typeof(val)
     
-    control = StructEditor.make_control!(value, type, sname, dirty )
+    control = StructEditor.make_control!(state, type, sname, dirty )
 
 
-    people = @lift(getproperty($value, sname))
+    people = @lift(getproperty($(state.value), sname))
     
     n_total = @lift(length($people))
     n_males = @lift($n_total == 0 ? 0.0 : 2pi*length(filter(x->x.gender == Male, $people))/$n_total)

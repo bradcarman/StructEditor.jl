@@ -10,26 +10,21 @@ using ShoelaceWidgets
     c::String = "c"
 end
 
-function StructEditor.make_control!(value::Observable{DifferentFields}, ::Val{:b}, dirty=identity)
+function StructEditor.make_control!(state::StructEditor.ApplicationState{DifferentFields}, ::Val{:b}, dirty=identity)
     sname = :b
     name = string(sname)
-    val = getproperty(value[], sname)
-    h = StructEditor.help(typeof(value[]), Val(sname) )
+    val = getproperty(state.value[], sname)
+    h = StructEditor.help(typeof(state.value[]), Val(sname) )
 
     y = SLTextarea(val; label=name, help=h)
-    on(y.value) do x
-        # println(":: y ($name): $x")
-        if ismutable(value[])
-            setproperty!(value[], sname, x)
-        else
-            value[] = set(value[], PropertyLens(sname), x)
-            dirty(true)
-        end
-    end
+    StructEditor.bind_field!(state.value, sname, y.value, dirty)
 
     return [y]
 end
 
-editor(DifferentFields())
+debugger = Ref{StructEditor.ApplicationState}()
 
+editor(DifferentFields(); debugger)
+
+# debugger[].value[] = DifferentFields("Change", "The", "Values")
 

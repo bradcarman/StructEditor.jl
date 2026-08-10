@@ -9,9 +9,9 @@ using ShoelaceWidgets
     chosen::Vector{String}=String[]
 end
 
-function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: Base.Enum
+function StructEditor.make_control!(state::StructEditor.ApplicationState{Chooser}, ::Type{T}, sname::Symbol, dirty=identity) where T <: Base.Enum
     name = string(sname)
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     
 
     opts = instances(T)
@@ -21,14 +21,14 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol,
     on(select.index) do i
         i = Int(i)
         if i > 0
-            push!(value[].chosen, select.values[i])
-            notify(value)
+            push!(state.value[].chosen, select.values[i])
+            notify(state.value)
         end
     end
 
     # widget space here is the 1-based option index; `valid` keeps a cleared selection
     # (index 0) from indexing `opts` out of bounds
-    StructEditor.bind_field!(value, sname, select.index, dirty;
+    StructEditor.bind_field!(state.value, sname, select.index, dirty;
                 to_field = i -> opts[i],
                 to_widget = v -> something(findfirst(==(v), opts), 1),
                 valid = i -> 1 <= i <= length(opts))

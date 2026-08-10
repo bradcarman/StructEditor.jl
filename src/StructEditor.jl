@@ -8,11 +8,19 @@ using Accessors
 using JSON
 using StructUtils
 
+struct ApplicationState{T}
+    value::Observable{T}
+    memory::Dict
+end
+
+ApplicationState(v::Observable) = ApplicationState(v, Dict())
+ApplicationState(x::T) where T = ApplicationState(Observable(v))
+
 StructUtils.structlike(::StructUtils.StructStyle, ::Type{Markdown.MD}) = false
 StructUtils.lower(md::Markdown.MD) = Markdown.plain(md)
 StructUtils.lift(::Type{Markdown.MD}, s::AbstractString) = Markdown.parse(s)
 
-export editor, viewer
+export editor, viewer, ApplicationState
 
 const STYLE_CSS = """
 
@@ -96,6 +104,7 @@ function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty
     # stale field as authoritative, and pushes it back over the user's input.
     seen = Ref{Any}(getproperty(value[], sname))
 
+    # calls to_field
     on(wvalue) do x
         valid(x) || return
         field = getproperty(value[], sname)
@@ -114,6 +123,7 @@ function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty
     end
 
     # this binding's field changed elsewhere, so re-seed the widget from it
+    # calls to_widget
     on(value) do v
         field = getproperty(v, sname)
         isequal(seen[], field) && return  # some other field moved, not ours
@@ -129,23 +139,22 @@ end
 
 
 
-function make_control!(value::Observable, ::Type{Bool}, sname::Symbol, dirty=identity)
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{Bool}, sname::Symbol, dirty=identity)
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
     
-
     checkbox = SLCheckbox(name; checked=val, help=h)
-    bind_field!(value, sname, checkbox.value, dirty)
+    bind_field!(state.value, sname, checkbox.value, dirty)
 
     return [checkbox]
 end
 
-function make_control!(value::Observable, ::Type{Missing}, sname::Symbol, dirty=identity)
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{Missing}, sname::Symbol, dirty=identity)
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
 
     x = SLInput("missing"; label=name, help=h, disabled=true)
@@ -153,47 +162,47 @@ function make_control!(value::Observable, ::Type{Missing}, sname::Symbol, dirty=
     return [x]
 end
 
-function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: Number
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T <: Number
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
 
     
     y = SLInput(val; label=name, help=h, select_on_focus=true)
-    bind_field!(value, sname, y.value, dirty; to_field=T)
+    bind_field!(state.value, sname, y.value, dirty; to_field=T)
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{String}, sname::Symbol, dirty=identity)
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{String}, sname::Symbol, dirty=identity)
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
 
     y = SLInput(val; label=name, help=h, select_on_focus=true)
-    bind_field!(value, sname, y.value, dirty)
+    bind_field!(state.value, sname, y.value, dirty)
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol, dirty=identity)
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{Symbol}, sname::Symbol, dirty=identity)
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
 
     y = SLInput(string(val); label=name, help=h, select_on_focus=true)
-    bind_field!(value, sname, y.value, dirty; to_field=Symbol, to_widget=string)
+    bind_field!(state.value, sname, y.value, dirty; to_field=Symbol, to_widget=string)
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: Base.Enum
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T <: Base.Enum
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
 
     opts = instances(T)
@@ -202,7 +211,7 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
 
     # widget space here is the 1-based option index; `valid` keeps a cleared selection
     # (index 0) from indexing `opts` out of bounds
-    bind_field!(value, sname, select.index, dirty;
+    bind_field!(state.value, sname, select.index, dirty;
                 to_field = i -> opts[i],
                 to_widget = v -> something(findfirst(==(v), opts), 1),
                 valid = i -> 1 <= i <= length(opts))
@@ -210,23 +219,23 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
     return [select]
 end
 
-function make_control!(value::Observable, ::Type{Date}, sname::Symbol, dirty=identity)
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{Date}, sname::Symbol, dirty=identity)
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
 
     # SLInput(::Date) builds an SLInput{String}, so widget space is the date string
     y = SLInput(val; label=name, help=h)
-    bind_field!(value, sname, y.value, dirty; to_field=Date, to_widget=string)
+    bind_field!(state.value, sname, y.value, dirty; to_field=Date, to_widget=string)
 
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol, dirty=identity)
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{Markdown.MD}, sname::Symbol, dirty=identity)
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
     
     sval = Markdown.plain(val)
@@ -234,7 +243,7 @@ function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol, di
 
     # Markdown.plain reformats, so the widget-space default would rewrite the user's text
     # back at them on every commit; comparing parsed values keeps what they typed
-    bind_field!(value, sname, y.value, dirty;
+    bind_field!(state.value, sname, y.value, dirty;
                 to_field = Markdown.parse,
                 to_widget = Markdown.plain,
                 same = (field, wval) -> isequal(field, Markdown.parse(wval)))
@@ -242,14 +251,14 @@ function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol, di
     return [y]
 end
 
-function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol, dirty=identity) where T <: Number
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{Vector{T}}, sname::Symbol, dirty=identity) where T <: Number
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
 
     y = SLInput(join(string.(val),','); label=name, help=h)
-    bind_field!(value, sname, y.value, dirty;
+    bind_field!(state.value, sname, y.value, dirty;
                 to_field = data -> isempty(data) ? T[] : map(x->parse(T, x), split(data,',')),
                 to_widget = v -> join(string.(v), ','))
 
@@ -259,39 +268,58 @@ end
 # ------------------------------------------------------------
 # Support Functions for Vector Add and Edit
 # ------------------------------------------------------------
-add_function(::Type{T}, session::Session) where T = T() #add_function(session)::T or add_function(manager, action) on Open ::Hyperscript.Node, on OK ::T
+add_function(state::ApplicationState, ::Type{T}, session::Session) where T = T() #add_function(session)::T or add_function(manager, action) on Open ::Hyperscript.Node, on OK ::T
 add_mode(::Type{T}) where T = ShoelaceWidgets.FunctionMode
-add_content(::Type{T}) where T = DOM.div()
+add_content(state::ApplicationState, ::Type{T}) where T = DOM.div()
 
-edit_observable(::Type{T}) where T = Observable(T())
-edit_observable(::Type{String}) = Observable("")
-function edit_function(::Type{T}, value::Observable, m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel) where T
+function edit_function(state::ApplicationState{P}, ::Type{T}, m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel) where {P,T}
+    edit_obs = state.memory[Symbol(:edit_, string(P), :_, string(T))]
     if action == ShoelaceWidgets.Open
-        value[] =  ShoelaceWidgets.selected_value(m)
+        edit_obs[] =  ShoelaceWidgets.selected_value(m)
     elseif action == ShoelaceWidgets.OK
-        ShoelaceWidgets.replace_selected!(m, value[])
+        ShoelaceWidgets.replace_selected!(m, edit_obs[])
     end
 end
-edit_content(::Type{T}, value::Observable) where T = DOM.div(make_form(value; class=""))
+function edit_content(state::ApplicationState{P}, ::Type{T}) where {P,T}
+   
+    edit_obs = if iscomposite(T)
+        Observable(T())
+    elseif T <: AbstractString
+        Observable("")
+    elseif T <: Number
+        Observable(T(0))
+    else
+        error("Add handler for type $T")
+    end
+
+    state.memory[Symbol(:edit_, string(P), :_, string(T))] = edit_obs
+    
+    element_state = ApplicationState(edit_obs, state.memory)
+
+    return make_form(element_state; class="")
+end
 
 item_function(x::T) where T = SLListItem(DOM.div(x); object=x)
 get_function(::Type{T}, x::SLListItem) where T = x.object
 
-function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty=identity)
-    value_type = typeof(value[])
+function make_control!(state::ApplicationState, ::Type{<:Vector}, sname::Symbol, dirty=identity)
+    value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
-    val = getproperty(value[], sname)
+    val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
 
     
     T = eltype(val)
     
-
     
-    edit_obs = edit_observable(T)
 
-    edit_funT = Base.Fix1(edit_function, T)
-    edit_funV = Base.Fix1(edit_funT, edit_obs)
+    edit_funO = Base.Fix1(edit_function, state)
+    edit_funT = Base.Fix1(edit_funO, T)
+    edit_contO = Base.Fix1(edit_content, state) # call function, returns DOM.div
+
+    add_funO = Base.Fix1(add_function, state)
+    add_funT = Base.Fix1(add_funO, T) # creats a add_function(session) or add_function(m, action)
+    add_contO = Base.Fix1(add_content, state) # call function, returns DOM.div
 
 
     y = ListManager(val; 
@@ -302,11 +330,11 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
                     get_function= Base.Fix1(get_function, T),
                     
                     add_mode=add_mode(T),
-                    add_function=Base.Fix1(add_function, T),
-                    add_content=add_content(T),
+                    add_function=add_funT,
+                    add_content=add_contO(T),
 
-                    edit_function=edit_funV,
-                    edit_content=edit_content(T, edit_obs),
+                    edit_function=edit_funT,
+                    edit_content=edit_contO(T),
                     
                     dialog_label=string(T),
                     dialog_style="--width: 75vw;",
@@ -327,18 +355,18 @@ function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty
 
         newval = get_values(y)
         seen[] = copy(newval)
-        if ismutable(value[])
-            setproperty!(value[], sname, newval)
+        if ismutable(state.value[])
+            setproperty!(state.value[], sname, newval)
         else
-            value[] = set(value[], PropertyLens(sname), newval)
+            state.value[] = set(state.value[], PropertyLens(sname), newval)
         end
 
-        change_callback(value[], Val(sname))
+        change_callback(state.value[], Val(sname))
         dirty(true)
     end
 
     # this field changed elsewhere, so rebuild the list from it
-    on(value) do v
+    on(state.value) do v
         field = getproperty(v, sname)
         isequal(seen[], field) && return  # some other field moved, not ours
         seen[] = copy(field)
@@ -381,14 +409,14 @@ function iscomposite(T::Type)
     return n > 0
 end
 
-function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T
+function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T
     if iscomposite(T) > 0
-        value_type = typeof(value[])
+        value_type = typeof(state.value[])
         name = field_label(value_type, Val(sname))
-        val = getproperty(value[], sname)
+        val = getproperty(state.value[], sname)
         
         
-        ref = Observable(val) 
+        ref = ApplicationState(Observable(val), state.memory)
         label = DOM.div(name; class="shoelace-label")
 
         container=DOM.div
@@ -402,20 +430,20 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
 
         # `ref` is this field's widget: binding it means a change to `value` re-seeds
         # `ref`, which cascades into the nested controls' own sync handlers
-        bind_field!(value, sname, ref, dirty)
+        bind_field!(state.value, sname, ref.value, dirty)
 
         return [label, DOM.div(y)]
     else
-        error("type $T not supported, add a `StructEditor.make_control!(value::Observable, ::Type{$T}, sname::Symbol, dirty=identity)` function to your package.")
+        error("type $T not supported, add a `StructEditor.make_control!(state::ApplicationState, ::Type{$T}, sname::Symbol, dirty=identity)` function to your package.")
     end
 end
 
 """
-    make_control!(value::Observable, ::Val, dirty=identity)
+    make_control!(state::ApplicationState, ::Val, dirty=identity)
 
-Defined to dispatch to a specific field `Val(field)`, generic definition defaults to nothing and falls to `make_control!(value::Observable, ::Type{T}, sname::Symbol) where T`
+Defined to dispatch to a specific field `Val(field)`, generic definition defaults to nothing and falls to `make_control!(state::ApplicationState, ::Type{T}, sname::Symbol) where T`
 """
-make_control!(value::Observable, ::Val, dirty=identity) = nothing
+make_control!(state::ApplicationState, ::Val, dirty=identity) = nothing
 
 
 # -----------------------------------------------------------------------------
@@ -566,6 +594,23 @@ Iterate the fields of `value[]`, building the parts for each. `val_fn(value, Val
 `type_fn(value, ftype, name)` is used. Each field's parts are wrapped with `container`.
 Shared by `make_form` (editor controls) and `make_view` (read-only views).
 """
+function build_fields(state::ApplicationState{T}, val_fn, type_fn, container) where T
+    form = []
+    for name in propertynames(state.value[])
+        skip_field(T, Val(name)) && continue
+
+        ftype = hasfield(T, name) ? fieldtype(T, name) : typeof(getproperty(state.value[], name))
+
+        parts = val_fn(state, Val(name))          # try field-specific first
+        if isnothing(parts)
+            parts = type_fn(state, ftype, name)   # fall to generic type
+        end
+
+        push!(form, container(parts...))
+    end
+    return form
+end
+
 function build_fields(value::Observable{T}, val_fn, type_fn, container) where T
     form = []
     for name in propertynames(value[])
@@ -594,7 +639,8 @@ Builds a `div::Hyperscript.Node` containing a form editor of struct `value::T`. 
 - `container=cell`: the function that each struct field control is wrapped with (for example `DOM.div`), `cell` is built-in
 - `buttons=[]`: add additional buttons along side `save` thru this keyword
 """
-function make_form(value::Observable{T}; save_function::Union{SaveFunction, Nothing}=nothing, class="centered", container=cell,  buttons=[]) where T
+function make_form(state::ApplicationState{T}; save_function::Union{SaveFunction, Nothing}=nothing, class="centered", container=cell,  buttons=[]) where T
+
 
     dirty = identity
 
@@ -603,7 +649,7 @@ function make_form(value::Observable{T}; save_function::Union{SaveFunction, Noth
 
         function dirty(x::Bool)
             save_button.disabled[] = !x
-            notify(value)
+            notify(state.value)
         end
 
         on(save_button.value) do x
@@ -611,7 +657,7 @@ function make_form(value::Observable{T}; save_function::Union{SaveFunction, Noth
             try
                 if !isnothing(save_function.file)
                     open(save_function.file, "w") do io
-                        JSON.json(io, value[]; pretty=true)
+                        JSON.json(io, state.value[]; pretty=true)
                     end
                 end
 
@@ -631,8 +677,9 @@ function make_form(value::Observable{T}; save_function::Union{SaveFunction, Noth
     end
 
 
+    
 
-    form = build_fields(value,
+    form = build_fields(state,
         (v, key) -> make_control!(v, key, dirty),
         (v, ftype, name) -> make_control!(v, ftype, name, dirty),
         container)
@@ -669,7 +716,7 @@ end
 
 function make_form(file::String, T::Type)
     value = JSON.parsefile(file, T)
-    return make_form(Observable(value); file)
+    return make_form(ApplicationState(Observable(value)); save_function=SaveFunction(;file))
 end
 
 """
@@ -758,7 +805,11 @@ function editor(file::String, T::Type; mode=vscode, kwargs...)
     return editor(value; save_function, mode, kwargs...)
 end
 
-function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, mode=vscode, server = nothing, path="/", icon="https://icons.getbootstrap.com/assets/icons/pencil.svg", title=string(T), kwargs...) where T
+
+
+
+
+function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, mode=vscode, server = nothing, path="/", icon="https://icons.getbootstrap.com/assets/icons/pencil.svg", title=string(T), debugger=nothing, kwargs...) where T
 
     app = App() do session
 
@@ -772,7 +823,14 @@ function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, m
         # controls mutate in place (`setproperty!`), which would leak edits across all
         # open browser windows.
         obs_value = Observable(deepcopy(value))
-        form = make_form(obs_value; save_function, kwargs...)
+        state = ApplicationState(obs_value, Dict())
+
+        if !isnothing(debugger)
+            debugger[] = state
+        end
+
+        form = make_form(state; save_function, kwargs...)
+
 
         page(form; title, icon)
     end

@@ -10,7 +10,7 @@ using Dates
 end
 
 
-@kwdef struct Person
+@kwdef struct Parent
     name::String = "name"
     age::Int = 0
     kid::Child # this type has fields, will automatically be included in an editor card
@@ -22,13 +22,17 @@ end
     string::String = "test"
     bool::Bool = true
     markdown::Markdown.MD = md"# Header"
-    person::Person = Person("person 1", 1, Child("kid")) # this type has fields, will automatically be included in an editor card
+    person::Parent = Parent("person 1", 1, Child("kid")) # this type has fields, will automatically be included in an editor card
 end
 
 
 file=joinpath(@__DIR__, "special.json")
 
+debugger = Ref{StructEditor.ApplicationState}()
+
 # create a new file
-editor(Special(); save_function=StructEditor.SaveFunction(;file))
+editor(Special(); save_function=StructEditor.SaveFunction(;file), debugger)
 
 # editor(file, Special)
+
+# debugger[].value[] = Special(num = 2, person = Parent("Brad", 45, Child("Ellie")))

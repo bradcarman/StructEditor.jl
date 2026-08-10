@@ -18,16 +18,16 @@ StructEditor.help(::Type{Task}, ::Val{:start}) = "Note: \"Specified\" means the 
 # rule, if start_date is nothing, then start should be Next, Parallel, or Delayed, otherwise it should be specified
 
 
-function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: StartType
+function StructEditor.make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T <: StartType
     name = string(sname)
-    val = getproperty(value[], sname)
-    h = StructEditor.help(typeof(value[]), Val(sname) )
+    val = getproperty(state.value[], sname)
+    h = StructEditor.help(typeof(state.value[]), Val(sname) )
     select = SLSelect( [string(x) for x in instances(StartType)]; label=name, help=h)
 
     select.index[] = Int(val) + 1
 
     on(select.index) do i
-        value[] = set(value[], PropertyLens(sname), StartType(i-1))
+        state.value[] = set(state.value[], PropertyLens(sname), StartType(i-1))
         
         dirty(true)
     end
@@ -35,10 +35,10 @@ function StructEditor.make_control!(value::Observable, ::Type{T}, sname::Symbol,
     return [select]
 end
 
-function StructEditor.make_control!(value::Observable, ::Type{Union{Date, Nothing}}, sname::Symbol, dirty=identity)
+function StructEditor.make_control!(state::ApplicationState, ::Type{Union{Date, Nothing}}, sname::Symbol, dirty=identity)
     name = string(sname)
-    val = getproperty(value[], sname)
-    h = StructEditor.help(typeof(value[]), Val(sname) )
+    val = getproperty(state.value[], sname)
+    h = StructEditor.help(typeof(state.value[]), Val(sname) )
 
     y = if isnothing(val)
         SLInput(Date(now()); label=name, disabled=true, help=h)
@@ -46,18 +46,18 @@ function StructEditor.make_control!(value::Observable, ::Type{Union{Date, Nothin
         SLInput(val; label=name, help=h)
     end
     
-    on(value) do x
+    on(state.value) do x
         @show x
         if x.start == Specified
             y.disabled[] = false
         else
             y.disabled[] = true
-            value.val = set(value[], PropertyLens(sname), nothing)
+            state.value.val = set(state.value[], PropertyLens(sname), nothing)
         end
     end
     on(y.value) do x
         # println(":: y ($name): $x type $(typeof(x))")
-        value[] = set(value[], PropertyLens(sname), Date(x))
+        state.value[] = set(state.value[], PropertyLens(sname), Date(x))
 
         dirty(true)
     end
