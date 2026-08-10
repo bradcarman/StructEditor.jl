@@ -58,6 +58,7 @@ const STYLE_CSS = """
 """
 
 help(::Type, ::Val) = ""
+field_label(::Type, ::Val{S}) where S = string(S)
 
 change_callback(value::T, ::Val) where T = nothing
 
@@ -85,7 +86,8 @@ function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty
                      to_field=identity,
                      to_widget=identity,
                      valid=(x -> true),
-                     same=((field, wval) -> isequal(to_widget(field), wval)))
+                     same=(field, wval) -> isequal(to_widget(field), wval)
+                     )
 
     # The field value this binding last saw. `value` notifies whenever *any* field
     # changes, so the sync below must react only when its own field actually moved.
@@ -123,10 +125,16 @@ function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty
     return wvalue
 end
 
+
+
+
+
 function make_control!(value::Observable, ::Type{Bool}, sname::Symbol, dirty=identity)
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
-    h = help(typeof(value[]), Val(sname) )
+    h = help(value_type, Val(sname) )
+    
 
     checkbox = SLCheckbox(name; checked=val, help=h)
     bind_field!(value, sname, checkbox.value, dirty)
@@ -135,9 +143,10 @@ function make_control!(value::Observable, ::Type{Bool}, sname::Symbol, dirty=ide
 end
 
 function make_control!(value::Observable, ::Type{Missing}, sname::Symbol, dirty=identity)
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
-    h = help(typeof(value[]), Val(sname) )
+    h = help(value_type, Val(sname) )
 
     x = SLInput("missing"; label=name, help=h, disabled=true)
 
@@ -145,11 +154,11 @@ function make_control!(value::Observable, ::Type{Missing}, sname::Symbol, dirty=
 end
 
 function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: Number
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
-    h = help(typeof(value[]), Val(sname) )
+    h = help(value_type, Val(sname) )
 
-    
     
     y = SLInput(val; label=name, help=h, select_on_focus=true)
     bind_field!(value, sname, y.value, dirty; to_field=T)
@@ -158,9 +167,10 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
 end
 
 function make_control!(value::Observable, ::Type{String}, sname::Symbol, dirty=identity)
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
-    h = help(typeof(value[]), Val(sname) )
+    h = help(value_type, Val(sname) )
 
     y = SLInput(val; label=name, help=h, select_on_focus=true)
     bind_field!(value, sname, y.value, dirty)
@@ -169,9 +179,10 @@ function make_control!(value::Observable, ::Type{String}, sname::Symbol, dirty=i
 end
 
 function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol, dirty=identity)
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
-    h = help(typeof(value[]), Val(sname) )
+    h = help(value_type, Val(sname) )
 
     y = SLInput(string(val); label=name, help=h, select_on_focus=true)
     bind_field!(value, sname, y.value, dirty; to_field=Symbol, to_widget=string)
@@ -180,9 +191,10 @@ function make_control!(value::Observable, ::Type{Symbol}, sname::Symbol, dirty=i
 end
 
 function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T <: Base.Enum
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
-    h = help(typeof(value[]), Val(sname) )
+    h = help(value_type, Val(sname) )
 
     opts = instances(T)
     select = SLSelect([string(x) for x in opts]; label=name, help=h)
@@ -199,9 +211,10 @@ function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identi
 end
 
 function make_control!(value::Observable, ::Type{Date}, sname::Symbol, dirty=identity)
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
-    h = help(typeof(value[]), Val(sname) )
+    h = help(value_type, Val(sname) )
 
     # SLInput(::Date) builds an SLInput{String}, so widget space is the date string
     y = SLInput(val; label=name, help=h)
@@ -211,9 +224,10 @@ function make_control!(value::Observable, ::Type{Date}, sname::Symbol, dirty=ide
 end
 
 function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol, dirty=identity)
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
-    h = help(typeof(value[]), Val(sname) )
+    h = help(value_type, Val(sname) )
     
     sval = Markdown.plain(val)
     y = SLTextarea(sval; label=name, rows=max(5, min(count('\n', sval) + 1, 20)), help=h)
@@ -229,9 +243,10 @@ function make_control!(value::Observable, ::Type{Markdown.MD}, sname::Symbol, di
 end
 
 function make_control!(value::Observable, ::Type{Vector{T}}, sname::Symbol, dirty=identity) where T <: Number
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
-    h = help(typeof(value[]), Val(sname) )
+    h = help(value_type, Val(sname) )
 
     y = SLInput(join(string.(val),','); label=name, help=h)
     bind_field!(value, sname, y.value, dirty;
@@ -263,10 +278,14 @@ item_function(x::T) where T = SLListItem(DOM.div(x); object=x)
 get_function(::Type{T}, x::SLListItem) where T = x.object
 
 function make_control!(value::Observable, ::Type{<:Vector}, sname::Symbol, dirty=identity)
-    name = string(sname)
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
     val = getproperty(value[], sname)
+    h = help(value_type, Val(sname) )
+
+    
     T = eltype(val)
-    h = help(typeof(value[]), Val(sname))
+    
 
     
     edit_obs = edit_observable(T)
@@ -364,8 +383,11 @@ end
 
 function make_control!(value::Observable, ::Type{T}, sname::Symbol, dirty=identity) where T
     if iscomposite(T) > 0
-        name = string(sname)
+        value_type = typeof(value[])
+        name = field_label(value_type, Val(sname))
         val = getproperty(value[], sname)
+        
+        
         ref = Observable(val) 
         label = DOM.div(name; class="shoelace-label")
 
@@ -438,8 +460,10 @@ make_view!(value::Observable, ::Type{Vector{T}}, sname::Symbol) where T <: Numbe
     view_field(value, sname, v -> join(string.(v), ", "))
 
 function make_view!(value::Observable, ::Type{Markdown.MD}, sname::Symbol)
-    name = string(sname)
-    h = help(typeof(value[]), Val(sname))
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
+    h = help(value_type, Val(sname) )
+
 
     md = Observable{Any}(getproperty(value[], sname))
     on(value) do v
@@ -452,8 +476,9 @@ function make_view!(value::Observable, ::Type{Markdown.MD}, sname::Symbol)
 end
 
 function make_view!(value::Observable, ::Type{<:Vector}, sname::Symbol)
-    name = string(sname)
-    h = help(typeof(value[]), Val(sname))
+    value_type = typeof(value[])
+    name = field_label(value_type, Val(sname))
+    h = help(value_type, Val(sname) )
 
     items = Observable{Any}(getproperty(value[], sname))
     on(value) do v
@@ -480,7 +505,9 @@ end
 
 function make_view!(value::Observable, ::Type{T}, sname::Symbol) where T
     if iscomposite(T)
-        name = string(sname)
+        value_type = typeof(value[])
+        name = field_label(value_type, Val(sname))
+
         val = getproperty(value[], sname)
         ref = Observable(val)
         on(value) do v
