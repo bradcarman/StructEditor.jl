@@ -68,10 +68,10 @@ const STYLE_CSS = """
 help(::Type, ::Val) = ""
 field_label(::Type, ::Val{S}) where S = string(S)
 
-change_callback(value::T, ::Val) where T = nothing
+change_callback(state::ApplicationState{T}, ::Val) where T = nothing
 
 """
-    bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty=identity;
+    bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable, dirty=identity;
                 to_field=identity, to_widget=identity, valid=(x -> true), same=...)
 
 Two-way bind a widget's value Observable `wvalue` to field `sname` of the struct held by
@@ -90,12 +90,14 @@ from the opposite direction terminates instead of recursing, and a programmatic 
 assumes `to_widget ∘ to_field` round-trips; where that does not hold (`Markdown.MD`, whose
 `to_widget` reformats the text) pass a comparison in field space instead.
 """
-function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty=identity;
+function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable, dirty=identity;
                      to_field=identity,
                      to_widget=identity,
                      valid=(x -> true),
                      same=(field, wval) -> isequal(to_widget(field), wval)
                      )
+
+    value = state.value
 
     # The field value this binding last saw. `value` notifies whenever *any* field
     # changes, so the sync below must react only when its own field actually moved.
@@ -118,7 +120,7 @@ function bind_field!(value::Observable, sname::Symbol, wvalue::Observable, dirty
             value[] = set(value[], PropertyLens(sname), new)
         end
 
-        change_callback(value[], Val(sname))
+        change_callback(state, Val(sname))
         dirty(true)
     end
 
@@ -146,7 +148,7 @@ function make_control!(state::ApplicationState, ::Type{Bool}, sname::Symbol, dir
     h = help(value_type, Val(sname) )
     
     checkbox = SLCheckbox(name; checked=val, help=h)
-    bind_field!(state.value, sname, checkbox.value, dirty)
+    bind_field!(state, sname, checkbox.value, dirty)
 
     return [checkbox]
 end
@@ -170,7 +172,7 @@ function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=
 
     
     y = SLInput(val; label=name, help=h, select_on_focus=true)
-    bind_field!(state.value, sname, y.value, dirty; to_field=T)
+    bind_field!(state, sname, y.value, dirty; to_field=T)
 
     return [y]
 end
@@ -182,7 +184,7 @@ function make_control!(state::ApplicationState, ::Type{String}, sname::Symbol, d
     h = help(value_type, Val(sname) )
 
     y = SLInput(val; label=name, help=h, select_on_focus=true)
-    bind_field!(state.value, sname, y.value, dirty)
+    bind_field!(state, sname, y.value, dirty)
 
     return [y]
 end
@@ -194,7 +196,7 @@ function make_control!(state::ApplicationState, ::Type{Symbol}, sname::Symbol, d
     h = help(value_type, Val(sname) )
 
     y = SLInput(string(val); label=name, help=h, select_on_focus=true)
-    bind_field!(state.value, sname, y.value, dirty; to_field=Symbol, to_widget=string)
+    bind_field!(state, sname, y.value, dirty; to_field=Symbol, to_widget=string)
 
     return [y]
 end
@@ -211,7 +213,7 @@ function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=
 
     # widget space here is the 1-based option index; `valid` keeps a cleared selection
     # (index 0) from indexing `opts` out of bounds
-    bind_field!(state.value, sname, select.index, dirty;
+    bind_field!(state, sname, select.index, dirty;
                 to_field = i -> opts[i],
                 to_widget = v -> something(findfirst(==(v), opts), 1),
                 valid = i -> 1 <= i <= length(opts))
@@ -227,7 +229,7 @@ function make_control!(state::ApplicationState, ::Type{Date}, sname::Symbol, dir
 
     # SLInput(::Date) builds an SLInput{String}, so widget space is the date string
     y = SLInput(val; label=name, help=h)
-    bind_field!(state.value, sname, y.value, dirty; to_field=Date, to_widget=string)
+    bind_field!(state, sname, y.value, dirty; to_field=Date, to_widget=string)
 
     return [y]
 end
@@ -243,7 +245,7 @@ function make_control!(state::ApplicationState, ::Type{Markdown.MD}, sname::Symb
 
     # Markdown.plain reformats, so the widget-space default would rewrite the user's text
     # back at them on every commit; comparing parsed values keeps what they typed
-    bind_field!(state.value, sname, y.value, dirty;
+    bind_field!(state, sname, y.value, dirty;
                 to_field = Markdown.parse,
                 to_widget = Markdown.plain,
                 same = (field, wval) -> isequal(field, Markdown.parse(wval)))
@@ -258,7 +260,8 @@ function make_control!(state::ApplicationState, ::Type{Vector{T}}, sname::Symbol
     h = help(value_type, Val(sname) )
 
     y = SLInput(join(string.(val),','); label=name, help=h)
-    bind_field!(state.value, sname, y.value, dirty;
+
+    bind_field!(state, sname, y.value, dirty;
                 to_field = data -> isempty(data) ? T[] : map(x->parse(T, x), split(data,',')),
                 to_widget = v -> join(string.(v), ','))
 
@@ -361,7 +364,7 @@ function make_control!(state::ApplicationState, ::Type{<:Vector}, sname::Symbol,
             state.value[] = set(state.value[], PropertyLens(sname), newval)
         end
 
-        change_callback(state.value[], Val(sname))
+        change_callback(state, Val(sname))
         dirty(true)
     end
 
@@ -430,7 +433,7 @@ function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=
 
         # `ref` is this field's widget: binding it means a change to `value` re-seeds
         # `ref`, which cascades into the nested controls' own sync handlers
-        bind_field!(state.value, sname, ref.value, dirty)
+        bind_field!(state, sname, ref.value, dirty)
 
         return [label, DOM.div(y)]
     else
