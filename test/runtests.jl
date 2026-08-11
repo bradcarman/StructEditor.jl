@@ -335,7 +335,7 @@ end
             i > 0 && (push!(seen, string(instances(TestColor)[i])); notify(obs))
         end
         # `bind_field!` still takes the Observable, not the ApplicationState
-        StructEditor.bind_field!(obs, :color, select.index;
+        StructEditor.bind_field!(st, :color, select.index;
                                  to_field = i -> instances(TestColor)[i],
                                  to_widget = v -> something(findfirst(==(v), instances(TestColor)), 1),
                                  valid = i -> 1 <= i <= length(instances(TestColor)))
