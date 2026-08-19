@@ -70,6 +70,76 @@ For more advanced examples:
 - how to define `make_control!` for specific fields, see "examples/fieldpattern.jl"
 - how to manage vectors, see "examples/vectors.jl"
 
+## Vector Controls
+StructEditor.jl includes the ability to handle Vectors with add, remove, clear, edit, and re-ording controls.  It's possible to control how Vectors are handled thru the below functions.
+
+### Add and Edit Modes
+- `add_mode(parent::Type, child::Val)` set to `NoAdd` (default), `FunctionAdd`, or `DialogAdd`
+- `edit_mode(parent::Type, child::Val)` set to `NoEdit` (default), or `DialogEdit`
+
+The options `NoAdd` and `NoEdit` will hide the `add` and `edit` buttons, respectively.
+
+### Add Mode : FunctionAdd 
+To define what happens when the `add` button is clicked, the following function can be defined, specialzing on the struct type `P` and the vector element type `T`.  The `build_add` function must return 2 values: a `Hyperscript.Node` and an `add_function(session::Session)`.  For `FunctionAdd` mode, the first value is ignored.  See "examples/vectors.jl" to see how this can be used to define new items based on the applicaiton state.
+
+```julia
+function build_add(state::ApplicationState{P}, ::Type{T}, ::Val{FunctionAdd}) where {P, T}
+
+    add_content = DOM.div()
+    add_function(session::Session) = add_new(T)
+
+    return add_content, add_function
+end
+```
+
+### Add Mode : DialogAdd
+When the `add` button is clicked it's possible to display a dialog first so that the new element can be edited before it's added to the Vector.  To control this behavior the below `build_add` function can be defined, specialzing on the struct type `P` and the vector element type `T`.  The `build_add` function must return 2 values: a `Hyperscript.Node` to define the dialog and an `add_function(m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)` to define the dialog behavior on `Open`, `OK`, and `Cancel`.  See "examples/vectors.jl" to see how this can be used to implement 1 type for the adding dialog and then transfer the data to the Vector type, a useful method to hide and control certain fields such as an unique `id` field.
+
+```julia
+function build_add(state::ApplicationState{P}, ::Type{T}, ::Val{DialogAdd}) where {P, T}
+
+    add_obs = Observable(add_new(T))
+
+    element_state = ApplicationState(add_obs, state.memory)
+    add_content = make_form(element_state; class="")
+
+    function add_function(m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)
+        if action == ShoelaceWidgets.Open
+            add_obs[] =  add_new(T)
+        elseif action == ShoelaceWidgets.OK
+            push!(m, deepcopy(add_obs[]))
+        end
+    end
+
+    return add_content, add_function
+end
+```
+
+
+### Edit Mode : DialogEdit
+The edit dialog is setup the same as the add dialog, except the `build_edit` function is used, setup in the same way.  Again, see "examples/vectors.jl" for an example of how this can be used.
+
+```julia
+function build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{DialogEdit}) where {P, T}
+
+    edit_obs = Observable(add_new(T))
+
+    element_state = ApplicationState(edit_obs, state.memory)
+    edit_content = make_form(element_state; class="")
+
+    function edit_function(m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)
+        if action == ShoelaceWidgets.Open
+            edit_obs[] =  ShoelaceWidgets.selected_value(m)
+        elseif action == ShoelaceWidgets.OK
+            ShoelaceWidgets.replace_selected!(m, deepcopy(edit_obs[]))
+        end
+    end
+
+    return edit_content, edit_function
+end
+```
+
+
 ## API
 
 ### editor
@@ -127,7 +197,7 @@ Pass either or both.
 
 ### StructEditor.make_control!
 ```julia
-make_control!(value::Observable, ::Val, dirty=identity)
+make_control!(state::ApplicationState, ::Val, dirty=identity)
 ```
 
 Defined to dispatch to a specific field `Val(field)`, generic definition defaults to nothing and falls to `make_control!(value::Observable, ::Type{T}, sname::Symbol) where T`
