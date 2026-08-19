@@ -289,17 +289,14 @@ end
 
 add_mode(parent::Type, child::Val) = NoAdd
 
-function build_add(state::ApplicationState{P}, ::Type{T}, ::Val{NoAdd}) where {P, T}
-    return DOM.div(), nothing
-end
+build_add(state::ApplicationState{P}, ::Type{T}, ::Val{NoAdd}) where {P, T} = nothing
+
 
 function build_add(state::ApplicationState{P}, ::Type{T}, ::Val{FunctionAdd}) where {P, T}
-
-    add_content = DOM.div()
     add_function(session::Session) = add_new(T)
-
-    return add_content, add_function
+    return add_function
 end
+
 
 function build_add(state::ApplicationState{P}, ::Type{T}, ::Val{DialogAdd}) where {P, T}
 
@@ -323,9 +320,8 @@ end
 
 edit_mode(parent::Type, child::Val) = NoEdit
 
-function build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{NoEdit}) where {P, T}
-    return DOM.div(), nothing
-end
+build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{NoEdit}) where {P, T} = nothing
+
 
 function build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{DialogEdit}) where {P, T}
 
@@ -369,10 +365,22 @@ function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symb
     T = eltype(val)
 
     edit_mode_val = edit_mode(P, Val(sname))
-    edit_content, edit_function = build_edit(state, T, Val(edit_mode_val))
+    edit_content_function = build_edit(state, T, Val(edit_mode_val))
+    edit_content = DOM.div()
+    edit_function = nothing
+    if edit_mode_val == DialogEdit
+        edit_content, edit_function = edit_content_function
+    end
 
     add_mode_val = add_mode(P, Val(sname))
-    add_content, add_function = build_add(state, T, Val(add_mode_val))
+    add_content = DOM.div()
+    add_function = nothing
+    add_content_function = build_add(state, T, Val(add_mode_val))
+    if add_mode_val == FunctionAdd
+        add_function = add_content_function
+    elseif add_mode_val == DialogAdd
+        add_content, add_function = add_content_function
+    end
 
     y = ListManager(val;
                     label=name,

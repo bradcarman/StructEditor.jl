@@ -80,15 +80,12 @@ StructEditor.jl includes the ability to handle Vectors with add, remove, clear, 
 The options `NoAdd` and `NoEdit` will hide the `add` and `edit` buttons, respectively.
 
 ### Add Mode : FunctionAdd 
-To define what happens when the `add` button is clicked, the following function can be defined, specialzing on the struct type `P` and the vector element type `T`.  The `build_add` function must return 2 values: a `Hyperscript.Node` and an `add_function(session::Session)`.  For `FunctionAdd` mode, the first value is ignored.  See "examples/vectors.jl" to see how this can be used to define new items based on the applicaiton state.
+To define what happens when the `add` button is clicked, the following function can be defined, specialzing on the struct type `P` and the vector element type `T`.  The `build_add` function must return a single value: an `add_function(session::Session)` that generates the new item to add to the Vector.  There is no dialog content in this mode, so no `Hyperscript.Node` is returned.  See "examples/vectors.jl" to see how this can be used to define new items based on the applicaiton state.
 
 ```julia
 function build_add(state::ApplicationState{P}, ::Type{T}, ::Val{FunctionAdd}) where {P, T}
-
-    add_content = DOM.div()
     add_function(session::Session) = add_new(T)
-
-    return add_content, add_function
+    return add_function
 end
 ```
 

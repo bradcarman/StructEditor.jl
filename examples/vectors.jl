@@ -21,17 +21,16 @@ For each Vector field additional custimization can be added for adding and editi
 #   Here we demonstrate a more advanced handling of adding a new 
 #   element to the vector.  The following 2 functions are needed:
 #   - add_mode --> ShoelaceWidgets.FunctionAdd
-#   - build_add --> add_content, add_function
-#   
+#   - build_add --> add_function
+#
 #  The `add_mode` is set to `FunctionAdd` that means the `add_function`
 #  is called to generate the new element to be added to the Vector.
-#  The other mode is `DialogAdd` which displays a dialog to set the 
+#  The other mode is `DialogAdd` which displays a dialog to set the
 #  item before it's added to the Vector.
 #
-#  The `build_add` function outputs the `add_content` for the add dialog
-#  and the `add_function` provides the function used to generate a new
-#  item to add to the list.  In this case `add_content` is not used
-#  because `FunctionAdd` mode is used.
+#  For `FunctionAdd` mode, the `build_add` function returns just the
+#  `add_function` used to generate a new item to add to the list (there
+#  is no dialog content to build in this mode).
 #
 #  In this example we set the `age` to the next increment before adding
 #  the item to the list.
@@ -53,15 +52,13 @@ StructEditor.add_mode(::Type{Group}, ::Val{:people}) = FunctionAdd
 StructEditor.edit_mode(::Type{Group}, ::Val{:people}) = DialogEdit
 
 function StructEditor.build_add(state::ApplicationState{Group}, ::Type{Member}, ::Val{ShoelaceWidgets.FunctionAdd})
-    
-    add_content = DOM.div() 
     function add_function(session::Session)
         group = state.value[]
         n = length(group.people)+1
         return Member("person $n", n)
     end
 
-    return add_content, add_function
+    return add_function
 end
 
 
