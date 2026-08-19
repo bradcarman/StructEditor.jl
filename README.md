@@ -68,7 +68,7 @@ For more advanced examples:
 - how to handle manipulation of controls based on set values, see "examples/toggle.jl"
 - how to handle composite field types, see "examples/special.jl"
 - how to define `make_control!` for specific fields, see "examples/fieldpattern.jl"
-
+- how to manage vectors, see "examples/vectors.jl"
 
 ## API
 

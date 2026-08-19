@@ -25,6 +25,8 @@ end
 file=joinpath(@__DIR__, "All.json")
 
 StructEditor.skip_field(::Type{All}, ::Val{:skip}) = true
+StructEditor.add_mode(::Type{All}, ::Val{:people}) = FunctionAdd
+StructEditor.edit_mode(::Type{All}, ::Val{:people}) = DialogEdit
 
 # create a new file
 all = All();

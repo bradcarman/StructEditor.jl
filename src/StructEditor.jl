@@ -3,6 +3,8 @@ using Dates
 using Markdown
 using ShoelaceWidgets
 using ShoelaceWidgets: get_values, replace_selected!, Open, OK
+using ShoelaceWidgets: NoAdd, FunctionAdd, DialogAdd, NoEdit, DialogEdit
+
 using Bonito
 using Accessors
 using JSON
@@ -21,6 +23,7 @@ StructUtils.lower(md::Markdown.MD) = Markdown.plain(md)
 StructUtils.lift(::Type{Markdown.MD}, s::AbstractString) = Markdown.parse(s)
 
 export editor, viewer, ApplicationState
+export NoAdd, FunctionAdd, DialogAdd, NoEdit, DialogEdit
 
 const STYLE_CSS = """
 
@@ -271,41 +274,92 @@ end
 # ------------------------------------------------------------
 # Support Functions for Vector Add and Edit
 # ------------------------------------------------------------
-add_function(state::ApplicationState, ::Type{T}, session::Session) where T = T() #add_function(session)::T or add_function(manager, action) on Open ::Hyperscript.Node, on OK ::T
-add_mode(::Type{T}) where T = ShoelaceWidgets.FunctionMode
-add_content(state::ApplicationState, ::Type{T}) where T = DOM.div()
-
-function edit_function(state::ApplicationState{P}, ::Type{T}, m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel) where {P,T}
-    edit_obs = state.memory[Symbol(:edit_, string(P), :_, string(T))]
-    if action == ShoelaceWidgets.Open
-        edit_obs[] =  ShoelaceWidgets.selected_value(m)
-    elseif action == ShoelaceWidgets.OK
-        ShoelaceWidgets.replace_selected!(m, edit_obs[])
-    end
-end
-function edit_content(state::ApplicationState{P}, ::Type{T}) where {P,T}
-   
-    edit_obs = if iscomposite(T)
-        Observable(T())
+function add_new(::Type{T}) where T
+    item = if iscomposite(T)
+        T()
     elseif T <: AbstractString
-        Observable("")
+        ""
     elseif T <: Number
-        Observable(T(0))
+        T(0)
     else
         error("Add handler for type $T")
     end
-
-    state.memory[Symbol(:edit_, string(P), :_, string(T))] = edit_obs
-    
-    element_state = ApplicationState(edit_obs, state.memory)
-
-    return make_form(element_state; class="")
+    return item
 end
 
+add_mode(parent::Type, child::Val) = NoAdd
+
+function build_add(state::ApplicationState{P}, ::Type{T}, ::Val{NoAdd}) where {P, T}
+    return DOM.div(), nothing
+end
+
+function build_add(state::ApplicationState{P}, ::Type{T}, ::Val{FunctionAdd}) where {P, T}
+
+    add_content = DOM.div()
+    add_function(session::Session) = add_new(T)
+
+    return add_content, add_function
+end
+
+function build_add(state::ApplicationState{P}, ::Type{T}, ::Val{DialogAdd}) where {P, T}
+
+    add_obs = Observable(add_new(T))
+
+    element_state = ApplicationState(add_obs, state.memory)
+    add_content = make_form(element_state; class="")
+
+    function add_function(m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)
+        if action == ShoelaceWidgets.Open
+            add_obs[] =  add_new(T)
+        elseif action == ShoelaceWidgets.OK
+            push!(m, deepcopy(add_obs[]))
+        end
+    end
+
+    return add_content, add_function
+end
+
+
+
+edit_mode(parent::Type, child::Val) = NoEdit
+
+function build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{NoEdit}) where {P, T}
+    return DOM.div(), nothing
+end
+
+function build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{DialogEdit}) where {P, T}
+
+    edit_obs = Observable(add_new(T))
+
+    element_state = ApplicationState(edit_obs, state.memory)
+    edit_content = make_form(element_state; class="")
+
+    function edit_function(m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)
+        if action == ShoelaceWidgets.Open
+            edit_obs[] =  ShoelaceWidgets.selected_value(m)
+        elseif action == ShoelaceWidgets.OK
+            ShoelaceWidgets.replace_selected!(m, deepcopy(edit_obs[]))
+        end
+    end
+
+    return edit_content, edit_function
+end
+
+"""
+    item_function(x::T)
+
+Use `item_function` to define how items of type T are displayed in the Vector editor
+"""
 item_function(x::T) where T = SLListItem(DOM.div(x); object=x)
+
+"""
+    get_function(::Type{T}, x::SLListItem)
+
+Use in conjunction with `item_function` to obtain the core data object from the SLListItem
+"""
 get_function(::Type{T}, x::SLListItem) where T = x.object
 
-function make_control!(state::ApplicationState, ::Type{<:Vector}, sname::Symbol, dirty=identity)
+function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symbol, dirty=identity) where {P}
     value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
@@ -313,32 +367,28 @@ function make_control!(state::ApplicationState, ::Type{<:Vector}, sname::Symbol,
 
     
     T = eltype(val)
-    
-    
 
-    edit_funO = Base.Fix1(edit_function, state)
-    edit_funT = Base.Fix1(edit_funO, T)
-    edit_contO = Base.Fix1(edit_content, state) # call function, returns DOM.div
+    edit_mode_val = edit_mode(P, Val(sname))
+    edit_content, edit_function = build_edit(state, T, Val(edit_mode_val))
 
-    add_funO = Base.Fix1(add_function, state)
-    add_funT = Base.Fix1(add_funO, T) # creats a add_function(session) or add_function(m, action)
-    add_contO = Base.Fix1(add_content, state) # call function, returns DOM.div
+    add_mode_val = add_mode(P, Val(sname))
+    add_content, add_function = build_add(state, T, Val(add_mode_val))
 
-
-    y = ListManager(val; 
+    y = ListManager(val;
                     label=name,
                     help=h,
 
                     item_function=item_function,
                     get_function= Base.Fix1(get_function, T),
-                    
-                    add_mode=add_mode(T),
-                    add_function=add_funT,
-                    add_content=add_contO(T),
 
-                    edit_function=edit_funT,
-                    edit_content=edit_contO(T),
-                    
+                    add_mode=add_mode_val,
+                    add_function,
+                    add_content,
+
+                    edit_mode=edit_mode_val,
+                    edit_function,
+                    edit_content,
+
                     dialog_label=string(T),
                     dialog_style="--width: 75vw;",
                     list_style="height: 40vh; overflow-y: auto; padding: 5px; border: 1px solid lightgray;")
@@ -631,6 +681,9 @@ function build_fields(value::Observable{T}, val_fn, type_fn, container) where T
     return form
 end
 
+
+setup_memory(state::ApplicationState{T}) where T = nothing
+
 """
     make_form(value::Observable{T}; save_function=nothing, class="centered", container=cell, buttons=[]) where T
 
@@ -679,8 +732,8 @@ function make_form(state::ApplicationState{T}; save_function::Union{SaveFunction
         push!(buttons, save_button)
     end
 
-
-    
+    # first create assets that can be shared between controls
+    setup_memory(state)
 
     form = build_fields(state,
         (v, key) -> make_control!(v, key, dirty),

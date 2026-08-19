@@ -73,7 +73,7 @@ function StructEditor.make_control!(state::StructEditor.ApplicationState, ::Type
     
     on(button.value) do x
         val = getproperty(state.value[], sname)
-        ref = StructEditor.ApplicationState(Observable(val), Dict())        
+        ref = ApplicationState(Observable(val), Dict())        
         dialog.value[] = StructEditor.make_form(ref; class="")
         dialog.open[] = true
     end

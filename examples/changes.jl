@@ -2,6 +2,14 @@ using StructEditor
 using Bonito
 using ShoelaceWidgets
 
+#=
+In this example it's shown how changes to the struct Observable
+are properly reflected in the control thru proper bindings.  
+
+With each choice made, the vector in chosen in populated and values
+are properly reflected in the editor.
+=#
+
 @enum Choices A B C
 
 @kwdef struct Chooser
@@ -28,13 +36,14 @@ function StructEditor.make_control!(state::StructEditor.ApplicationState{Chooser
 
     # widget space here is the 1-based option index; `valid` keeps a cleared selection
     # (index 0) from indexing `opts` out of bounds
-    StructEditor.bind_field!(state.value, sname, select.index, dirty;
-                to_field = i -> opts[i],
-                to_widget = v -> something(findfirst(==(v), opts), 1),
-                valid = i -> 1 <= i <= length(opts))
+    # StructEditor.bind_field!(state, sname, select.index, dirty;
+    #             to_field = i -> opts[i],
+    #             to_widget = v -> something(findfirst(==(v), opts), 1),
+    #             valid = i -> 1 <= i <= length(opts))
 
     return [select]
 end
     
 c = Chooser()
 editor(c)
+

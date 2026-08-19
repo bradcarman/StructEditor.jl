@@ -5,16 +5,36 @@ using Bonito
 using ShoelaceWidgets
 using UnPack
 
+#=
+When a struct has a Vector field, then the ShoelaceWidgets ListManager is used to provide the controls for adding, removing, clearing, and re-ordering elements.
+
+For each Vector field additional custimization can be added for adding and editing elements.  
+
+
+
+=#
+
+
 
 # -----------------------------------------------------------------
 # -----------------------------------------------------------------
 #   Here we demonstrate a more advanced handling of adding a new 
-#   element to the vector.  The idea is to show a dialog before the 
-#   new item is added to the list.  To do this we must implment 3 
-#   interface functions:
-#   - add_function: used to add logic for Open, OK, and Cancel actions
-#   - add_mode: Chose DialogMode to use a form
-#   - add_content: Use `make_form` to provide the form contents
+#   element to the vector.  The following 2 functions are needed:
+#   - add_mode --> ShoelaceWidgets.FunctionAdd
+#   - build_add --> add_content, add_function
+#   
+#  The `add_mode` is set to `FunctionAdd` that means the `add_function`
+#  is called to generate the new element to be added to the Vector.
+#  The other mode is `DialogAdd` which displays a dialog to set the 
+#  item before it's added to the Vector.
+#
+#  The `build_add` function outputs the `add_content` for the add dialog
+#  and the `add_function` provides the function used to generate a new
+#  item to add to the list.  In this case `add_content` is not used
+#  because `FunctionAdd` mode is used.
+#
+#  In this example we set the `age` to the next increment before adding
+#  the item to the list.
 # -----------------------------------------------------------------
 # -----------------------------------------------------------------
 
@@ -28,27 +48,24 @@ Member() = Member("", 0)
     people::Vector{Member} = [Member("person 1", 1), Member("person 2", 2)]
 end
 
-
 # Here we show an example of generating a new element with an incrementing number
-function StructEditor.add_function(state::ApplicationState, ::Type{Member}, m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)
-    if action == ShoelaceWidgets.Open
-        n = length(m.list.values[]) + 1
-        state.memory[:member][] = Member("person $n", n)
-    elseif action == ShoelaceWidgets.OK
-        push!(m, deepcopy(state.memory[:member][]))
-    end
-end
-StructEditor.add_mode(::Type{Member}) = ShoelaceWidgets.DialogMode
-function StructEditor.add_content(state::ApplicationState, ::Type{Member})
+StructEditor.add_mode(::Type{Group}, ::Val{:people}) = FunctionAdd
+StructEditor.edit_mode(::Type{Group}, ::Val{:people}) = DialogEdit
+
+function StructEditor.build_add(state::ApplicationState{Group}, ::Type{Member}, ::Val{ShoelaceWidgets.FunctionAdd})
     
-    member = Observable(Member("name", 0))
-    state.memory[:member] = member
+    add_content = DOM.div() 
+    function add_function(session::Session)
+        group = state.value[]
+        n = length(group.people)+1
+        return Member("person $n", n)
+    end
 
-    member_state = ApplicationState(member, state.memory)
-
-    return StructEditor.make_form(member_state; class="")
+    return add_content, add_function
 end
 
+
+# create a debugger object to analyze the application state in the REPL
 debugger = Ref{ApplicationState}()
 
 all = Group();
@@ -74,57 +91,53 @@ MemberID() = MemberID("", 0, 0)
     people::Vector{MemberID} = [MemberID("person 1", 10, 1), MemberID("person 2", 20, 2)]
 end
 
-
-function StructEditor.add_content(state::ApplicationState, ::Type{MemberID})
+StructEditor.add_mode(::Type{GroupID}, ::Val{:people}) = DialogAdd
+function StructEditor.build_add(state::ApplicationState{GroupID}, ::Type{MemberID}, ::Val{ShoelaceWidgets.DialogAdd})
     
-    member_add = Observable(Member("name", 0))
-    state.memory[:member_add] = member_add
+    add_obs = Observable(Member("name", 0))
 
-    member_state = ApplicationState(member_add, state.memory)
+    element_state = ApplicationState(add_obs, state.memory)
+    add_content = StructEditor.make_form(element_state; class="")
 
-    return StructEditor.make_form(member_state; class="")
-end
-
-function StructEditor.add_function(state::ApplicationState, ::Type{MemberID}, m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)
-    if action == ShoelaceWidgets.Open
-        state.memory[:member_add][] = Member("new person", 0)
-    elseif action == ShoelaceWidgets.OK
-        id = length(m.list.values[]) + 1
-        member_add = state.memory[:member_add][]
-        x = MemberID(member_add.name, member_add.age, id)
-        push!(m, x)
+    function add_function(m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)
+        if action == ShoelaceWidgets.Open
+            add_obs[] =  Member("new person", 0)
+        elseif action == ShoelaceWidgets.OK
+            member = add_obs[]
+            @unpack name, age = member
+            groupid = state.value[]
+            id = length(groupid.people)+1
+            push!(m, MemberID(name, age, id))
+        end
     end
-end
-StructEditor.add_mode(::Type{MemberID}) = ShoelaceWidgets.DialogMode
 
-
-
-function StructEditor.edit_content(state::ApplicationState, ::Type{MemberID})
-    
-    member_edit = Observable(Member("name", 0))
-    state.memory[:member_edit] = member_edit
-
-    member_state = ApplicationState(member_edit, state.memory)
-
-    return StructEditor.make_form(member_state; class="")
+    return add_content, add_function
 end
 
-function StructEditor.edit_function(state::ApplicationState, ::Type{MemberID}, m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)
-    selected_memberid = ShoelaceWidgets.selected_value(m)
-    @unpack name, age, id = selected_memberid
-    if action == ShoelaceWidgets.Open
-        state.memory[:member_edit][] = Member(name, age)
-    elseif action == ShoelaceWidgets.OK
-        member = state.memory[:member_edit][]
-        @unpack name, age = member
-        new_memid = MemberID(name, age, id)
-        ShoelaceWidgets.replace_selected!(m, new_memid)
+
+StructEditor.edit_mode(::Type{GroupID}, ::Val{:people}) = DialogEdit
+function StructEditor.build_edit(state::ApplicationState{GroupID}, ::Type{MemberID}, ::Val{ShoelaceWidgets.DialogEdit})
+
+    edit_obs = Observable(Member("name", 0))
+
+    element_state = ApplicationState(edit_obs, state.memory)
+    edit_content = StructEditor.make_form(element_state; class="")
+
+    function edit_function(m::ShoelaceWidgets.ListManager, action::ShoelaceWidgets.OpenOKCancel)
+        selected_memberid = ShoelaceWidgets.selected_value(m)
+        @unpack name, age, id = selected_memberid
+        if action == ShoelaceWidgets.Open
+            edit_obs[] = Member(name, age)
+        elseif action == ShoelaceWidgets.OK
+            member = edit_obs[]
+            @unpack name, age = member
+            new_memid = MemberID(name, age, id)
+            ShoelaceWidgets.replace_selected!(m, new_memid)
+        end
     end
+
+    return edit_content, edit_function
 end
-
-
-
-
 
 debugger = Ref{ApplicationState}()
 

@@ -7,7 +7,7 @@
   "person": {
     "name": "Brad",
     "age": 45,
-    "kid": {
+    "child": {
       "name": "Ellie"
     }
   }

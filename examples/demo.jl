@@ -15,6 +15,9 @@ Base.show(io::IO, p::Person) = print(io, "name: $(p.name), age=$(p.age), $(p.gen
     people::Vector{Person} = Person[]
 end
 
+StructEditor.add_mode(::Type{Team}, ::Val{:people}) = FunctionAdd
+StructEditor.edit_mode(::Type{Team}, ::Val{:people}) = DialogEdit
+
 team = Team("Team Julia", Person[])
 editor(team)
 
@@ -40,7 +43,7 @@ viewer(file, Team)
 
 using WGLMakie
 sname = :people
-function StructEditor.make_control!(state::StructEditor.ApplicationState, ::Val{sname}, dirty=identity)
+function StructEditor.make_control!(state::StructEditor.ApplicationState{Team}, ::Val{sname}, dirty=identity)
     
     val = getproperty(state.value[], sname)
     type = typeof(val)
