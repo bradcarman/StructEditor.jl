@@ -341,19 +341,19 @@ function build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{DialogEdit}) wh
     return edit_content, edit_function
 end
 
-"""
-    item_function(x::T)
+function build_item(state::ApplicationState, ::Type{T}) where T
 
-Use `item_function` to define how items of type T are displayed in the Vector editor
-"""
-item_function(x::T) where T = SLListItem(DOM.div(x); object=x)
+    function item_function(m::ShoelaceWidgets.ListManager, x::T)
+        return SLListItem(DOM.div(x); object=x)
+    end
 
-"""
-    get_function(::Type{T}, x::SLListItem)
+    function get_function(m::ShoelaceWidgets.ListManager, x::SLListItem)
+        return x.object
+    end
 
-Use in conjunction with `item_function` to obtain the core data object from the SLListItem
-"""
-get_function(::Type{T}, x::SLListItem) where T = x.object
+    return item_function, get_function
+end
+
 
 function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symbol, dirty=identity) where {P}
     value_type = typeof(state.value[])
@@ -382,12 +382,14 @@ function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symb
         add_content, add_function = add_content_function
     end
 
+    item_function, get_function = build_item(state, T)
+
     y = ListManager(val;
                     label=name,
                     help=h,
 
-                    item_function=item_function,
-                    get_function= Base.Fix1(get_function, T),
+                    item_function,
+                    get_function,
 
                     add_mode=add_mode_val,
                     add_function,

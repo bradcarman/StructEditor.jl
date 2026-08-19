@@ -5,16 +5,40 @@ using Bonito
 using ShoelaceWidgets
 using UnPack
 
+
+struct ItemDisplayExample
+    data::Vector{String}
+end
+
+function StructEditor.build_item(state::ApplicationState{ItemDisplayExample}, ::Type{String})
+
+    function item_function(m::ShoelaceWidgets.ListManager, value::String)
+
+        input = SLInput(value) 
+        on(input.value) do x
+            notify(m.list.values) # ensure item is updated to source
+        end
+
+        return SLListItem(DOM.div(input); object=input)
+    end
+
+    function get_function(m::ShoelaceWidgets.ListManager, x::SLListItem)
+        input = x.object
+        return input.value[]
+    end
+
+    return item_function, get_function
+end
+
+
+debugger = Ref{ApplicationState}()
+editor(ItemDisplayExample(["A","B","C"]); debugger)
+
 #=
-When a struct has a Vector field, then the ShoelaceWidgets ListManager is used to provide the controls for adding, removing, clearing, and re-ordering elements.
+Change a value in the list and hit enter, then view the changes in the source observable...
 
-For each Vector field additional custimization can be added for adding and editing elements.  
-
-
-
+debugger[].value[].data #<-- should match changes in the list
 =#
-
-
 
 # -----------------------------------------------------------------
 # -----------------------------------------------------------------

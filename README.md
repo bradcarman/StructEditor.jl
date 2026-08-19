@@ -73,6 +73,10 @@ For more advanced examples:
 ## Vector Controls
 StructEditor.jl includes the ability to handle Vectors with add, remove, clear, edit, and re-ording controls.  It's possible to control how Vectors are handled thru the below functions.
 
+### Display
+There are 2 ways to control how vector elements are displayed, first is thru the standard Julian way of respecting the defined `show` method.  The "examples/demo.jl" shows a simple example of this.  The second method is to define the `item_function(m::ShoelaceWidgets.ListManager, x::T)` and `get_function(m::ShoelaceWidgets.ListManager, x::SLListItem)` with the `build_item(state::ApplicationState, ::Type{T})` function.  See "examples/vectors.jl" to see a use case with `build_item`.  
+
+
 ### Add and Edit Modes
 - `add_mode(parent::Type, child::Val)` set to `NoAdd` (default), `FunctionAdd`, or `DialogAdd`
 - `edit_mode(parent::Type, child::Val)` set to `NoEdit` (default), or `DialogEdit`
@@ -135,6 +139,8 @@ function build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{DialogEdit}) wh
     return edit_content, edit_function
 end
 ```
+
+
 
 
 ## API

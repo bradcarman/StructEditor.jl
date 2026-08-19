@@ -24,7 +24,7 @@ function StructEditor.make_control!(state::ApplicationState{DifferentFields}, ::
     return [y]
 end
 
-debugger = Ref{StructEditor.ApplicationState}()
+debugger = Ref{ApplicationState}()
 
 editor(DifferentFields(); debugger)
 
