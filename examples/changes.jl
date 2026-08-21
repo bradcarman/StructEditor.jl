@@ -14,7 +14,7 @@ are properly reflected in the editor.
 
 @kwdef struct Chooser
     choice::Choices=A
-    chosen::Vector{String}=String[]
+    chosen::Vector{Symbol}=Symbol[]
 end
 
 function StructEditor.make_control!(state::StructEditor.ApplicationState{Chooser}, ::Type{T}, sname::Symbol, dirty=identity) where T <: Base.Enum
@@ -29,7 +29,7 @@ function StructEditor.make_control!(state::StructEditor.ApplicationState{Chooser
     on(select.index) do i
         i = Int(i)
         if i > 0
-            push!(state.value[].chosen, select.values[i])
+            push!(state.value[].chosen, Symbol(select.values[i]))
             notify(state.value)
         end
     end

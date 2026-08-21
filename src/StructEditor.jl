@@ -69,7 +69,7 @@ const STYLE_CSS = """
 """
 
 help(::Type, ::Val) = ""
-field_label(::Type, ::Val{S}) where S = string(S)
+field_label(::Type, ::Val{S}) where S = string(S) # use to change the display label
 
 change_callback(state::ApplicationState{T}, ::Val) where T = nothing
 
@@ -354,6 +354,26 @@ function build_item(state::ApplicationState, ::Type{T}) where T
     return item_function, get_function
 end
 
+function build_item(state::ApplicationState, ::Type{String})
+
+    function item_function(m::ShoelaceWidgets.ListManager, value::String)
+
+        input = SLInput(value) 
+        on(input.value) do x
+            notify(m.list.values) # ensure item is updated to source
+        end
+
+        return SLListItem(DOM.div(input); object=input)
+    end
+
+    function get_function(m::ShoelaceWidgets.ListManager, x::SLListItem)
+        input = x.object
+        return input.value[]
+    end
+
+    return item_function, get_function
+end
+
 
 function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symbol, dirty=identity) where {P}
     value_type = typeof(state.value[])
@@ -472,13 +492,12 @@ function iscomposite(T::Type)
     return n > 0
 end
 
-function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T
+function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dirty=identity; to_field=identity, to_widget=identity) where {P,T}
     if iscomposite(T) > 0
-        value_type = typeof(state.value[])
-        name = field_label(value_type, Val(sname))
-        val = getproperty(state.value[], sname)
+        name = field_label(P, Val(sname))
+        val = to_widget(getproperty(state.value[], sname))
         
-        
+
         ref = ApplicationState(Observable(val), state.memory)
         label = DOM.div(name; class="shoelace-label")
 
@@ -491,9 +510,7 @@ function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=
 
         y = sl_card(form; style="width:100%;")
 
-        # `ref` is this field's widget: binding it means a change to `value` re-seeds
-        # `ref`, which cascades into the nested controls' own sync handlers
-        bind_field!(state, sname, ref.value, dirty)
+        bind_field!(state, sname, ref.value, dirty; to_field, to_widget)
 
         return [label, DOM.div(y)]
     else
@@ -661,7 +678,7 @@ function build_fields(state::ApplicationState{T}, val_fn, type_fn, container) wh
     form = []
     for name in propertynames(state.value[])
         skip_field(T, Val(name)) && continue
-
+        
         ftype = hasfield(T, name) ? fieldtype(T, name) : typeof(getproperty(state.value[], name))
 
         parts = val_fn(state, Val(name))          # try field-specific first
@@ -674,6 +691,7 @@ function build_fields(state::ApplicationState{T}, val_fn, type_fn, container) wh
     return form
 end
 
+# called by make_view...
 function build_fields(value::Observable{T}, val_fn, type_fn, container) where T
     form = []
     for name in propertynames(value[])

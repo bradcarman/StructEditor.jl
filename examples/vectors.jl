@@ -10,25 +10,9 @@ struct ItemDisplayExample
     data::Vector{String}
 end
 
-function StructEditor.build_item(state::ApplicationState{ItemDisplayExample}, ::Type{String})
-
-    function item_function(m::ShoelaceWidgets.ListManager, value::String)
-
-        input = SLInput(value) 
-        on(input.value) do x
-            notify(m.list.values) # ensure item is updated to source
-        end
-
-        return SLListItem(DOM.div(input); object=input)
-    end
-
-    function get_function(m::ShoelaceWidgets.ListManager, x::SLListItem)
-        input = x.object
-        return input.value[]
-    end
-
-    return item_function, get_function
-end
+# NOTE: see definition function build_item(state::ApplicationState, ::Type{String})
+#       This function defines the ability to edit strings in place with an SLInput control
+#       and ensure the data is bound to the original source.
 
 
 debugger = Ref{ApplicationState}()

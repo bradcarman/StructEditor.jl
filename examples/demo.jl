@@ -70,7 +70,7 @@ function StructEditor.make_control!(state::StructEditor.ApplicationState{Team}, 
     return [control, f]
 end
 
-editor(team; save_function)
+editor(file, Team; save_function)
 
 
 # ======================
