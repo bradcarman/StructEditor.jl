@@ -36,6 +36,19 @@ end
     label::String = "group"
 end
 
+# readonly() is exercised on this struct rather than TestAll/TestPerson, so marking
+# fields readonly here doesn't affect the JSON round-trip / sync tests above
+@kwdef struct TestReadonly
+    name::String = "Alice"
+    color::TestColor = Red
+    people::Vector{TestPerson} = [TestPerson("Bob", 5)]
+    nested::TestPerson = TestPerson("Cleo", 9)   # left editable, to test `forced` cascade
+end
+
+StructEditor.readonly(::Type{TestReadonly}, ::Val{:name}) = true
+StructEditor.readonly(::Type{TestReadonly}, ::Val{:color}) = true
+StructEditor.readonly(::Type{TestReadonly}, ::Val{:people}) = true
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 """

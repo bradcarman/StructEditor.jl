@@ -72,7 +72,7 @@ function expand_to_description(x::ExpandedDescription)
 end
 
 
-# Here we create 
+# Here we create the expanded control
 function StructEditor.make_control!(state::ApplicationState{Project}, ::Val{:description}, dirty=identity)
     sname = :description
     return StructEditor.make_control!(state, ExpandedDescription, sname, dirty; 

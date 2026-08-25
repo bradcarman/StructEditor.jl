@@ -261,6 +261,43 @@ include("utils.jl")
         end
     end
 
+    @testset "readonly" begin
+        # default: a field with no readonly() method stays editable
+        st, obs = appstate(TestPerson())
+        plain = StructEditor.make_control!(st, String, :name)
+        @test plain[1] isa SLInput
+        @test plain[1].disabled[] == false
+
+        st, obs = appstate(TestReadonly())
+
+        # scalar controls have native `disabled` support, so a readonly() field just
+        # renders disabled while staying reactive
+        name_ctrl = StructEditor.make_control!(st, String, :name)
+        @test name_ctrl[1] isa SLInput
+        @test name_ctrl[1].disabled[] == true
+
+        # SLSelect has no native disabled, so a readonly enum falls back to the same
+        # plain-text rendering make_view! uses, instead of a still-interactive dropdown
+        color_ctrl = StructEditor.make_control!(st, TestColor, :color)
+        @test !(color_ctrl[1] isa SLSelect)
+
+        # ListManager has no native disabled either, same fallback
+        people_ctrl = StructEditor.make_control!(st, Vector{TestPerson}, :people)
+        @test !(people_ctrl[1] isa ListManager)
+
+        # `forced` is how a readonly composite field cascades into its own fields'
+        # controls, overriding whatever readonly() says (or doesn't say) for them
+        nested_ctrl = StructEditor.make_control!(st, String, :name; forced=true)
+        @test nested_ctrl[1].disabled[] == true
+
+        # a composite field itself still renders (as a card of controls) whether or
+        # not `forced` is set
+        parts = StructEditor.make_control!(st, TestPerson, :nested)
+        @test length(parts) == 2
+        parts = StructEditor.make_control!(st, TestPerson, :nested; forced=true)
+        @test length(parts) == 2
+    end
+
     @testset "viewer" begin
         # `make_view` / `viewer` still take the Observable directly
         obs = Observable(TestAll())

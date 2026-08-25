@@ -1,6 +1,7 @@
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
 Bonito = "824d6782-a2ef-11e9-3a09-e5662e0c26f8"
+ConstructionBase = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 ShoelaceWidgets = "1dc53738-a592-4c0c-95ab-f92b84dc4c89"
 StructEditor = "f41bf64d-372c-4047-8f65-4cd74346a5da"

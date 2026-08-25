@@ -69,6 +69,20 @@ const STYLE_CSS = """
 """
 
 help(::Type, ::Val) = ""
+
+"""
+    readonly(parent::Type, child::Val) = false
+
+Field-specific hook (mirrors [`help`](@ref)) marking a field's control as read-only.
+`make_control!` methods that build onto a widget with native `disabled` support (checkbox,
+text input, textarea) render it disabled but still reactive; methods that build a widget
+with no such support (the `Base.Enum` select, the `ListManager`-backed `Vector` control)
+fall back to the same read-only rendering `make_view!` uses instead. When the field holds a
+nested composite struct, marking it readonly cascades: every control inside that struct's
+card becomes readonly too, regardless of `readonly` methods defined for the nested type.
+"""
+readonly(::Type, ::Val) = false
+
 field_label(::Type, ::Val{S}) where S = string(S) # use to change the display label
 
 change_callback(state::ApplicationState{T}, ::Val) where T = nothing
@@ -111,18 +125,24 @@ function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable,
 
     # calls to_field
     on(wvalue) do x
+        # println("::on(wvalue) name=$sname  valid(x) || return")
         valid(x) || return
         field = getproperty(value[], sname)
+        # println("::on(wvalue)  same(field, x) || return")
         same(field, x) && return  # echo of the sync below
 
         new = to_field(x)
         seen[] = new              # this binding is the author of the change
+        # println("::on(wvalue) new=$new seen[]=$(seen[])")
         if ismutable(value[])
             setproperty!(value[], sname, new)
+            notify(value)
         else
+            @show "set!"
             value[] = set(value[], PropertyLens(sname), new)
         end
 
+        # println("::on(wvalue) change_callback(state, Val(sname))")
         change_callback(state, Val(sname))
         dirty(true)
     end
@@ -130,10 +150,13 @@ function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable,
     # this binding's field changed elsewhere, so re-seed the widget from it
     # calls to_widget
     on(value) do v
+        
         field = getproperty(v, sname)
+        # println("::on(value) isequal(seen[], field) && return")
         isequal(seen[], field) && return  # some other field moved, not ours
         seen[] = field
 
+        # println("::on(value) field=$field wvalue[]=$(wvalue[])")
         same(field, wvalue[]) || (wvalue[] = to_widget(field))
     end
 
@@ -144,19 +167,20 @@ end
 
 
 
-function make_control!(state::ApplicationState, ::Type{Bool}, sname::Symbol, dirty=identity)
+function make_control!(state::ApplicationState, ::Type{Bool}, sname::Symbol, dirty=identity; forced::Bool=false)
     value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
-    
-    checkbox = SLCheckbox(name; checked=val, help=h)
+    ro = forced || readonly(value_type, Val(sname))
+
+    checkbox = SLCheckbox(name; checked=val, help=h, disabled=ro)
     bind_field!(state, sname, checkbox.value, dirty)
 
     return [checkbox]
 end
 
-function make_control!(state::ApplicationState, ::Type{Missing}, sname::Symbol, dirty=identity)
+function make_control!(state::ApplicationState, ::Type{Missing}, sname::Symbol, dirty=identity; forced::Bool=false)
     value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
@@ -167,45 +191,65 @@ function make_control!(state::ApplicationState, ::Type{Missing}, sname::Symbol, 
     return [x]
 end
 
-function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T <: Number
+function make_control!(state::ApplicationState, ::Type{Function}, sname::Symbol, dirty=identity; forced::Bool=false)
+    value_type = typeof(state.value[])
+    name = field_label(value_type, Val(sname))
+    fun = getproperty(state.value[], sname)
+    h = help(value_type, Val(sname) )
+
+    x = SLInput(fun(); label=name, help=h, disabled=true)
+
+    return [x]
+end
+
+function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity; forced::Bool=false) where T <: Number
     value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
+    ro = forced || readonly(value_type, Val(sname))
 
-    
-    y = SLInput(val; label=name, help=h, select_on_focus=true)
+    y = SLInput(val; label=name, help=h, select_on_focus=true, disabled=ro)
     bind_field!(state, sname, y.value, dirty; to_field=T)
 
     return [y]
 end
 
-function make_control!(state::ApplicationState, ::Type{String}, sname::Symbol, dirty=identity)
+function make_control!(state::ApplicationState, ::Type{String}, sname::Symbol, dirty=identity; forced::Bool=false)
     value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
+    ro = forced || readonly(value_type, Val(sname))
 
-    y = SLInput(val; label=name, help=h, select_on_focus=true)
+    y = SLInput(val; label=name, help=h, select_on_focus=true, disabled=ro)
     bind_field!(state, sname, y.value, dirty)
 
     return [y]
 end
 
-function make_control!(state::ApplicationState, ::Type{Symbol}, sname::Symbol, dirty=identity)
+function make_control!(state::ApplicationState, ::Type{Symbol}, sname::Symbol, dirty=identity; forced::Bool=false)
     value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
+    ro = forced || readonly(value_type, Val(sname))
 
-    y = SLInput(string(val); label=name, help=h, select_on_focus=true)
+    y = SLInput(string(val); label=name, help=h, select_on_focus=true, disabled=ro)
     bind_field!(state, sname, y.value, dirty; to_field=Symbol, to_widget=string)
 
     return [y]
 end
 
-function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T <: Base.Enum
+function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity; forced::Bool=false) where T <: Base.Enum
     value_type = typeof(state.value[])
+
+    # SLSelect has no native `disabled`, so a readonly enum falls back to the same
+    # plain-text rendering the viewer uses instead of a (still interactive) dropdown
+    if forced || readonly(value_type, Val(sname))
+        return view_field(state.value, sname)
+    end
+
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
@@ -224,27 +268,29 @@ function make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=
     return [select]
 end
 
-function make_control!(state::ApplicationState, ::Type{Date}, sname::Symbol, dirty=identity)
+function make_control!(state::ApplicationState, ::Type{Date}, sname::Symbol, dirty=identity; forced::Bool=false)
     value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
+    ro = forced || readonly(value_type, Val(sname))
 
     # SLInput(::Date) builds an SLInput{String}, so widget space is the date string
-    y = SLInput(val; label=name, help=h)
+    y = SLInput(val; label=name, help=h, disabled=ro)
     bind_field!(state, sname, y.value, dirty; to_field=Date, to_widget=string)
 
     return [y]
 end
 
-function make_control!(state::ApplicationState, ::Type{Markdown.MD}, sname::Symbol, dirty=identity)
+function make_control!(state::ApplicationState, ::Type{Markdown.MD}, sname::Symbol, dirty=identity; forced::Bool=false)
     value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
-    
+    ro = forced || readonly(value_type, Val(sname))
+
     sval = Markdown.plain(val)
-    y = SLTextarea(sval; label=name, rows=max(5, min(count('\n', sval) + 1, 20)), help=h)
+    y = SLTextarea(sval; label=name, rows=max(5, min(count('\n', sval) + 1, 20)), help=h, disabled=ro)
 
     # Markdown.plain reformats, so the widget-space default would rewrite the user's text
     # back at them on every commit; comparing parsed values keeps what they typed
@@ -256,13 +302,14 @@ function make_control!(state::ApplicationState, ::Type{Markdown.MD}, sname::Symb
     return [y]
 end
 
-function make_control!(state::ApplicationState, ::Type{Vector{T}}, sname::Symbol, dirty=identity) where T <: Number
+function make_control!(state::ApplicationState, ::Type{Vector{T}}, sname::Symbol, dirty=identity; forced::Bool=false) where T <: Number
     value_type = typeof(state.value[])
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
+    ro = forced || readonly(value_type, Val(sname))
 
-    y = SLInput(join(string.(val),','); label=name, help=h)
+    y = SLInput(join(string.(val),','); label=name, help=h, disabled=ro)
 
     bind_field!(state, sname, y.value, dirty;
                 to_field = data -> isempty(data) ? T[] : map(x->parse(T, x), split(data,',')),
@@ -375,13 +422,20 @@ function build_item(state::ApplicationState, ::Type{String})
 end
 
 
-function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symbol, dirty=identity) where {P}
+function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symbol, dirty=identity; forced::Bool=false) where {P}
     value_type = typeof(state.value[])
+
+    # ListManager has no native readonly/disabled mode, so a readonly vector falls
+    # back to the same read-only list rendering the viewer uses
+    if forced || readonly(value_type, Val(sname))
+        return make_view!(state.value, typeof(getproperty(state.value[], sname)), sname)
+    end
+
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
 
-    
+
     T = eltype(val)
 
     edit_mode_val = edit_mode(P, Val(sname))
@@ -492,11 +546,12 @@ function iscomposite(T::Type)
     return n > 0
 end
 
-function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dirty=identity; to_field=identity, to_widget=identity) where {P,T}
+function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dirty=identity; to_field=identity, to_widget=identity, forced::Bool=false) where {P,T}
     if iscomposite(T) > 0
         name = field_label(P, Val(sname))
         val = to_widget(getproperty(state.value[], sname))
-        
+
+        ro = forced || readonly(P, Val(sname))
 
         ref = ApplicationState(Observable(val), state.memory)
         label = DOM.div(name; class="shoelace-label")
@@ -504,7 +559,7 @@ function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dir
         container=DOM.div
         form = build_fields(ref,
             (v, key) -> make_control!(v, key, dirty),
-            (v, ftype, name) -> make_control!(v, ftype, name, dirty),
+            (v, ftype, name) -> make_control!(v, ftype, name, dirty; forced=ro),
             container)
 
 
