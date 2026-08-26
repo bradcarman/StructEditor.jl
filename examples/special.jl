@@ -10,12 +10,12 @@ NOTE: Here we see how child structs are represented.  In `Special` below
       are fully edititable.
 =#
 
-@kwdef struct Child
+@kwdef mutable struct Child
     name::String = "name"
 end
 
 
-@kwdef struct Parent
+@kwdef mutable struct Parent
     name::String = "name"
     age::Int = 0
     child::Child # this type has fields, will automatically be included in an editor card

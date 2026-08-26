@@ -138,7 +138,6 @@ function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable,
             setproperty!(value[], sname, new)
             notify(value)
         else
-            @show "set!"
             value[] = set(value[], PropertyLens(sname), new)
         end
 
@@ -555,6 +554,11 @@ function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dir
 
         ref = ApplicationState(Observable(val), state.memory)
         label = DOM.div(name; class="shoelace-label")
+
+        # propogate down
+        on(state.value) do x
+            notify(ref.value)
+        end
 
         container=DOM.div
         form = build_fields(ref,
