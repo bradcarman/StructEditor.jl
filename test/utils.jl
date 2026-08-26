@@ -21,6 +21,17 @@ end
     label::String = "outer"
 end
 
+# a composite field whose type is mutable: editing it in the nested form mutates the
+# same object the parent holds, rather than replacing it
+@kwdef mutable struct TestMutableChild
+    name::String = "kid"
+end
+
+@kwdef struct TestMutableNested
+    child::TestMutableChild = TestMutableChild()
+    label::String = "outer"
+end
+
 @enum TestColor Red Green Blue
 
 # the Enum and numeric-vector controls live here so TestAll stays as it is

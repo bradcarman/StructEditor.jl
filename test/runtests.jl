@@ -142,6 +142,43 @@ include("utils.jl")
         @test obs[].person.age == 2
     end
 
+    @testset "composite field propagates up when mutable" begin
+        # When a composite field's type is mutable, `make_control!`'s nested
+        # ApplicationState wraps the *same object* the parent holds -- editing it
+        # mutates in place rather than replacing it. `bind_field!`'s echo-guard used
+        # to compare that mutated object against itself with `isequal`, which is
+        # always true for a mutable struct (Julia compares those by identity), so a
+        # real edit was always mistaken for an echo of the propagate-down sync and
+        # never notified the parent. Reproduce make_control!'s composite-branch
+        # wiring directly here since its nested ApplicationState isn't reachable from
+        # its return value (see the "sync from value" composite test above).
+        st, obs = appstate(TestMutableNested())
+        top_fired = Ref(0)
+        on(st.value) do _
+            top_fired[] += 1
+        end
+
+        updating = Ref(false)
+        ref = ApplicationState(Observable(obs[].child), st.memory)
+        on(st.value) do _
+            updating[] = true
+            try
+                notify(ref.value)
+            finally
+                updating[] = false
+            end
+        end
+        StructEditor.bind_field!(st, :child, ref.value; same=(field, wval) -> updating[])
+
+        # what a leaf control inside the nested form does on a real edit: mutate the
+        # shared object, then notify its own (the nested) Observable
+        ref.value[].name = "Bob"
+        notify(ref.value)
+
+        @test obs[].child.name == "Bob"
+        @test top_fired[] >= 1
+    end
+
     @testset "update cycle" begin
         # A programmatic change to `value` must not mark the form dirty, and an echo
         # of a value the field already holds must not either.

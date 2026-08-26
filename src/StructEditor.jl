@@ -555,9 +555,24 @@ function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dir
         ref = ApplicationState(Observable(val), state.memory)
         label = DOM.div(name; class="shoelace-label")
 
+        # When T is mutable, `ref.value` wraps the very same object as
+        # `getproperty(state.value[], sname)` -- editing it mutates that object in
+        # place rather than replacing it. `bind_field!`'s default echo-guard compares
+        # `field` and the incoming widget value with `isequal`, but Julia compares
+        # mutable structs by identity, so that comparison is always true and a real
+        # edit would always be mistaken for an echo of the sync below, never
+        # propagating up. Track re-entrancy explicitly instead: only the propagate-down
+        # notify here counts as an echo, so `same` bails only while it's in flight.
+        updating = Ref(false)
+
         # propogate down
         on(state.value) do x
-            notify(ref.value)
+            updating[] = true
+            try
+                notify(ref.value)
+            finally
+                updating[] = false
+            end
         end
 
         container=DOM.div
@@ -569,7 +584,7 @@ function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dir
 
         y = sl_card(form; style="width:100%;")
 
-        bind_field!(state, sname, ref.value, dirty; to_field, to_widget)
+        bind_field!(state, sname, ref.value, dirty; to_field, to_widget, same=(field, wval) -> updating[])
 
         return [label, DOM.div(y)]
     else

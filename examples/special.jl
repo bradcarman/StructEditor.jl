@@ -38,6 +38,11 @@ debugger = Ref{StructEditor.ApplicationState}()
 # create a new file
 editor(Special(); save_function=StructEditor.SaveFunction(;file), debugger)
 
-# editor(file, Special)
+#=
+Create the below observable callback then make changes to any field, including the 
+Parent and Child fields, they should all trigger top level callbacks
 
-# debugger[].value[] = Special(num = 2, person = Parent("Brad", 45, Child("Ellie")))
+on(debugger[].value) do x
+    println("changed!")
+end
+=#
