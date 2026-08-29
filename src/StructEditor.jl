@@ -730,15 +730,34 @@ cell(x...) = DOM.div(x...;
 Describes what an [`editor`](@ref)'s `save` button does. Supplying a `SaveFunction` to
 `editor` (or `make_form`) is what enables the save button; both fields default to `nothing`:
 
+- `label`: (default "save") button label 
 - `file`: path to the JSON file `value` is written to on save
-- `func`: a zero-argument function called on save (e.g. to trigger downstream side effects)
+- `func`: a one-argument function (state::ApplicationState) called on save (e.g. to trigger downstream side effects)
 
-Pass either or both.
+Pass either `file`/`func` or both.  Button state is enabled when the `dirty` funciton in the `make_control` constructor is called.
 """
 @kwdef struct SaveFunction
+    label::String = "save"
     file::Union{String,Nothing} = nothing
     func::Union{Function,Nothing} = nothing
 end
+
+"""
+    UpdateFunction(; func=nothing)
+
+Describes what an [`editor`](@ref)'s `save` button does. Supplying a `SaveFunction` to
+`editor` (or `make_form`) is what enables the save button; both fields default to `nothing`:
+
+- `label`: (default "update") button label
+- `func`: a one-argument function (state::ApplicationState) called with button click
+
+Pass either or both.
+"""
+@kwdef struct UpdateFunction
+    label::String = "update"
+    func::Function = (state::ApplicationState) -> println(state.value[])
+end
+
 
 """
     build_fields(value::Observable, val_fn, type_fn, container)
@@ -793,17 +812,18 @@ Builds a `div::Hyperscript.Node` containing a form editor of struct `value::T`. 
 
 ## kwargs
 - `save_function::Union{SaveFunction, Nothing}=nothing`: when a [`SaveFunction`](@ref) is given, a `save` button writes to its json `file` (if not nothing) and/or calls its `func` (if not nothing); when `nothing` the save button is not included
+- `update_function::Union{UpdateFunction, Nothing}=nothing`: when a [`UpdateFunction`](@ref) is given, an `update` button calls its `func(value::ApplicationState)` (if not nothing); when `nothing` the update button is not included
 - `class="centered"`: the CSS class to style the form, "centered" is built-in
 - `container=cell`: the function that each struct field control is wrapped with (for example `DOM.div`), `cell` is built-in
 - `buttons=[]`: add additional buttons along side `save` thru this keyword
 """
-function make_form(state::ApplicationState{T}; save_function::Union{SaveFunction, Nothing}=nothing, class="centered", container=cell,  buttons=[]) where T
+function make_form(state::ApplicationState{T}; save_function::Union{SaveFunction, Nothing}=nothing, update_function::Union{UpdateFunction, Nothing}=nothing, class="centered", container=cell,  buttons=[]) where T
 
 
     dirty = identity
 
     if !isnothing(save_function)
-        save_button = SLButton("save"; variant="primary", disabled=true)
+        save_button = SLButton(save_function.label; variant="primary", disabled=true)
 
         function dirty(x::Bool)
             save_button.disabled[] = !x
@@ -820,7 +840,7 @@ function make_form(state::ApplicationState{T}; save_function::Union{SaveFunction
                 end
 
                 if !isnothing(save_function.func)
-                    save_function.func()
+                    save_function.func(state)
                 end    
 
                 save_button.disabled[] = true
@@ -832,6 +852,23 @@ function make_form(state::ApplicationState{T}; save_function::Union{SaveFunction
         end
 
         push!(buttons, save_button)
+    end
+
+    if !isnothing(update_function)
+        update_button = SLButton(update_function.label)
+
+        on(update_button.value) do x
+            update_button.loading[] = true
+            try
+                update_function.func(state)   
+            catch err
+                @error "Update failed" exception=(err, catch_backtrace())
+            finally
+                update_button.loading[] = false
+            end
+        end
+
+        push!(buttons, update_button)
     end
 
     # first create assets that can be shared between controls
@@ -1032,5 +1069,35 @@ function viewer(value::T; mode=vscode, server = nothing, path="/", icon="https:/
 
     return run_app(app; mode, server, path)
 end
+
+function link_editor(label::String, server::Bonito.Server, path::String, onclick::Function; target="_blank", kwargs...)
+
+    button = SLButton(label; href=Bonito.HTTPServer.online_url(server, path), target)
+    loading = App() do session
+        DOM.div("loading...")
+    end
+    route!(server, path => loading)
+    on(button.value) do session
+
+        value, save_function = onclick()
+
+        editor(value;
+                save_function,
+                server,
+                mode=StructEditor.online,
+                path,
+                kwargs...)
+
+        # the "/edit" route now points at the real editor app; tell the
+        # tab that's still showing `loading` to reload and pick it up
+        loading_session = loading.session[]
+        if !isnothing(loading_session) && isready(loading_session; throw=false)
+            Bonito.evaljs(loading_session, js"window.location.reload()")
+        end
+    end
+
+    return button
+end
+
 
 end # module StructEditor
