@@ -102,7 +102,6 @@ Field-specific hook (mirrors [`help`](@ref)) overriding whether a `Vector` field
 collapsible(::Type, ::Val) = true
 
 change_callback(state::ApplicationState{T}, ::Val) where T = nothing
-value_callback(state::ApplicationState{T}, ::Val) where T = nothing
 
 """
     bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable, dirty=identity;
