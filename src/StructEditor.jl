@@ -85,7 +85,24 @@ readonly(::Type, ::Val) = false
 
 field_label(::Type, ::Val{S}) where S = string(S) # use to change the display label
 
+"""
+    list_style(parent::Type, child::Val) = "height: 40vh; overflow-y: auto; padding: 5px; border: 1px solid lightgray;"
+
+Field-specific hook (mirrors [`help`](@ref)) overriding the inline CSS style of the
+bordered, scrolling box a `Vector` field's `ListManager` renders its items in.
+"""
+list_style(::Type, ::Val) = "height: 40vh; overflow-y: auto; padding: 5px; border: 1px solid lightgray;"
+
+"""
+    collapsible(parent::Type, child::Val) = true
+
+Field-specific hook (mirrors [`help`](@ref)) overriding whether a `Vector` field's
+`ListManager` wraps its items in a collapsible region (see `ListManager`'s `collapsible`).
+"""
+collapsible(::Type, ::Val) = true
+
 change_callback(state::ApplicationState{T}, ::Val) where T = nothing
+value_callback(state::ApplicationState{T}, ::Val) where T = nothing
 
 """
     bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable, dirty=identity;
@@ -111,7 +128,8 @@ function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable,
                      to_field=identity,
                      to_widget=identity,
                      valid=(x -> true),
-                     same=(field, wval) -> isequal(to_widget(field), wval)
+                     same=(field, wval) -> isequal(to_widget(field), wval),
+                     getproperty_callback = getproperty
                      )
 
     value = state.value
@@ -150,8 +168,9 @@ function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable,
     # calls to_widget
     on(value) do v
         
-        field = getproperty(v, sname)
+        field = getproperty_callback(v, sname)
         # println("::on(value) isequal(seen[], field) && return")
+
         isequal(seen[], field) && return  # some other field moved, not ours
         seen[] = field
 
@@ -433,6 +452,8 @@ function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symb
     name = field_label(value_type, Val(sname))
     val = getproperty(state.value[], sname)
     h = help(value_type, Val(sname) )
+    ls = list_style(value_type, Val(sname))
+    collapse = collapsible(value_type, Val(sname))
 
 
     T = eltype(val)
@@ -474,7 +495,8 @@ function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symb
 
                     dialog_label=string(T),
                     dialog_style="--width: 75vw;",
-                    list_style="height: 40vh; overflow-y: auto; padding: 5px; border: 1px solid lightgray;")
+                    list_style=ls,
+                    collapsible=collapse)
 
     # The same two-way binding `bind_field!` does, but the widget here is the whole
     # list rather than a single value Observable. `seen` holds a *copy* so that a
@@ -493,6 +515,7 @@ function make_control!(state::ApplicationState{P}, ::Type{<:Vector}, sname::Symb
         seen[] = copy(newval)
         if ismutable(state.value[])
             setproperty!(state.value[], sname, newval)
+            notify(state.value)
         else
             state.value[] = set(state.value[], PropertyLens(sname), newval)
         end

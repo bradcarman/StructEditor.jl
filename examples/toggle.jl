@@ -18,22 +18,26 @@ StructEditor.help(::Type{Task}, ::Val{:start}) = "Note: \"Specified\" means the 
 # rule, if start_date is nothing, then start should be Next, Parallel, or Delayed, otherwise it should be specified
 
 
-function StructEditor.make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T <: StartType
-    name = string(sname)
-    val = getproperty(state.value[], sname)
-    h = StructEditor.help(typeof(state.value[]), Val(sname) )
-    select = SLSelect( [string(x) for x in instances(StartType)]; label=name, help=h)
+# function StructEditor.make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T <: StartType
+#     name = string(sname)
+#     val = getproperty(state.value[], sname)
+#     h = StructEditor.help(typeof(state.value[]), Val(sname) )
+#     select = SLSelect( [string(x) for x in instances(StartType)]; label=name, help=h)
 
-    select.index[] = Int(val) + 1
+#     select.index[] = Int(val) + 1
 
-    on(select.index) do i
-        state.value[] = set(state.value[], PropertyLens(sname), StartType(i-1))
-        
-        dirty(true)
-    end
+#     function to_field(i::Integer)
+#         return instances(StartType)[i]
+#     end
 
-    return [select]
-end
+#     function to_widget(s::StartType)
+#         return findfirst(isequal(s), instances(StartType))
+#     end
+
+#     StructEditor.bind_field!(state, sname, select.index, dirty; to_field, to_widget)
+
+#     return [select]
+# end
 
 function StructEditor.make_control!(state::ApplicationState, ::Type{Union{Date, Nothing}}, sname::Symbol, dirty=identity)
     name = string(sname)
@@ -45,28 +49,46 @@ function StructEditor.make_control!(state::ApplicationState, ::Type{Union{Date, 
     else
         SLInput(val; label=name, help=h)
     end
-    
-    on(state.value) do x
-        @show x
+
+
+    function to_field(w::String)
+        x = state.value[]
+
         if x.start == Specified
-            y.disabled[] = false
+            return Date(w)
         else
-            y.disabled[] = true
-            state.value.val = set(state.value[], PropertyLens(sname), nothing)
+            return nothing
         end
     end
-    on(y.value) do x
-        # println(":: y ($name): $x type $(typeof(x))")
-        state.value[] = set(state.value[], PropertyLens(sname), Date(x))
 
-        dirty(true)
+    function to_widget(field::Union{Date, Nothing})
+        if isnothing(field)
+            return string(Date(now()))
+        else
+            return string(field)
+        end
     end
+
+    function getproperty_callback(x::Task, sname::Symbol)
+
+        if x.start == Specified
+            y.disabled[] = false
+            return getproperty(x, sname)
+        else
+            y.disabled[] = true
+            return nothing
+        end
+    end
+
+
+    StructEditor.bind_field!(state, sname, y.value, dirty; to_field, to_widget, getproperty_callback)
 
     return [y]
 end
 
 t = Task()
 file=joinpath(@__DIR__, "toggle.json")
-editor(t; save_function=StructEditor.SaveFunction(;file))
+debugger = Ref{ApplicationState}()
+editor(t; save_function=StructEditor.SaveFunction(;file), debugger)
 
 # JSON.parsefile(file, Task)
