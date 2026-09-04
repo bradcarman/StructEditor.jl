@@ -3,7 +3,7 @@ using Dates
 using Markdown
 using ShoelaceWidgets
 using ShoelaceWidgets: get_values, replace_selected!, Open, OK
-using ShoelaceWidgets: NoAdd, FunctionAdd, DialogAdd, NoEdit, DialogEdit
+using ShoelaceWidgets: NoAdd, FunctionAdd, DialogAdd, NoEdit, NoEditDeleteClearOrder, DialogEdit
 
 using Bonito
 using Accessors
@@ -23,7 +23,7 @@ StructUtils.lower(md::Markdown.MD) = Markdown.plain(md)
 StructUtils.lift(::Type{Markdown.MD}, s::AbstractString) = Markdown.parse(s)
 
 export editor, viewer, ApplicationState
-export NoAdd, FunctionAdd, DialogAdd, NoEdit, DialogEdit
+export NoAdd, FunctionAdd, DialogAdd, NoEdit, DialogEdit, NoEditDeleteClearOrder
 
 const STYLE_CSS = """
 
@@ -385,6 +385,7 @@ end
 edit_mode(parent::Type, child::Val) = NoEdit
 
 build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{NoEdit}) where {P, T} = nothing
+build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{NoEditDeleteClearOrder}) where {P, T} = nothing
 
 
 function build_edit(state::ApplicationState{P}, ::Type{T}, ::Val{DialogEdit}) where {P, T}

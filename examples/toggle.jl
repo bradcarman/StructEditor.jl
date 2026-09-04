@@ -17,28 +17,6 @@ StructEditor.help(::Type{Task}, ::Val{:start}) = "Note: \"Specified\" means the 
 
 # rule, if start_date is nothing, then start should be Next, Parallel, or Delayed, otherwise it should be specified
 
-
-# function StructEditor.make_control!(state::ApplicationState, ::Type{T}, sname::Symbol, dirty=identity) where T <: StartType
-#     name = string(sname)
-#     val = getproperty(state.value[], sname)
-#     h = StructEditor.help(typeof(state.value[]), Val(sname) )
-#     select = SLSelect( [string(x) for x in instances(StartType)]; label=name, help=h)
-
-#     select.index[] = Int(val) + 1
-
-#     function to_field(i::Integer)
-#         return instances(StartType)[i]
-#     end
-
-#     function to_widget(s::StartType)
-#         return findfirst(isequal(s), instances(StartType))
-#     end
-
-#     StructEditor.bind_field!(state, sname, select.index, dirty; to_field, to_widget)
-
-#     return [select]
-# end
-
 function StructEditor.make_control!(state::ApplicationState, ::Type{Union{Date, Nothing}}, sname::Symbol, dirty=identity)
     name = string(sname)
     val = getproperty(state.value[], sname)
