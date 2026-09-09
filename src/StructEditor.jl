@@ -142,15 +142,15 @@ function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable,
 
     # calls to_field
     on(wvalue) do x
-        # println("::on(wvalue) name=$sname  valid(x) || return")
+        # println("::::on(wvalue) name=$sname  valid(x) || return")
         valid(x) || return
         field = getproperty(value[], sname)
-        # println("::on(wvalue)  same(field, x) || return")
+        # println("::::on(wvalue)  same(field, x) || return")
         same(field, x) && return  # echo of the sync below
-
+     
         new = to_field(x)
         seen[] = new              # this binding is the author of the change
-        # println("::on(wvalue) new=$new seen[]=$(seen[])")
+        # println("::::on(wvalue) new=$new seen[]=$(seen[])")
         if ismutable(value[])
             setproperty!(value[], sname, new)
             notify(value)
@@ -158,8 +158,10 @@ function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable,
             value[] = set(value[], PropertyLens(sname), new)
         end
 
-        # println("::on(wvalue) change_callback(state, Val(sname))")
+        # println("::::on(wvalue) change_callback(state, Val(sname))")
         change_callback(state, Val(sname))
+
+        # println("::::dirty(true)")
         dirty(true)
     end
 
@@ -572,6 +574,7 @@ function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dir
     if iscomposite(T) > 0
         name = field_label(P, Val(sname))
         val = to_widget(getproperty(state.value[], sname))
+        h = help(P, Val(sname))
 
         ro = forced || readonly(P, Val(sname))
 
@@ -591,14 +594,16 @@ function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dir
         # propogate down
         on(state.value) do x
             updating[] = true
+            # println(":: updating... $x")
             try
                 notify(ref.value)
             finally
+                # println(":: done updating")
                 updating[] = false
             end
         end
 
-        container=DOM.div
+        container=cell_no_border
         form = build_fields(ref,
             (v, key) -> make_control!(v, key, dirty),
             (v, ftype, name) -> make_control!(v, ftype, name, dirty; forced=ro),
@@ -609,7 +614,9 @@ function make_control!(state::ApplicationState{P}, ::Type{T}, sname::Symbol, dir
 
         bind_field!(state, sname, ref.value, dirty; to_field, to_widget, same=(field, wval) -> updating[])
 
-        return [label, DOM.div(y)]
+        parts = Any[label, DOM.div(y)]
+        isempty(h) || push!(parts, DOM.div(h; class="shoelace-help"))
+        return parts
     else
         error("type $T not supported, add a `StructEditor.make_control!(state::ApplicationState, ::Type{$T}, sname::Symbol, dirty=identity)` function to your package.")
     end
@@ -743,6 +750,13 @@ cell(x...) = DOM.div(x...;
                         width:100%; 
                         border-left: solid 4px var(--sl-color-neutral-200); 
                         margin: 20px 2px;
+                        padding: 4px;
+                    """
+                    )
+cell_no_border(x...) = DOM.div(x...; 
+                    style="""
+                        width:100%; 
+                        margin: 2px;
                         padding: 4px;
                     """
                     )
