@@ -1041,9 +1041,23 @@ end
 
 
 
-function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, mode=vscode, server = nothing, path="/", icon="https://icons.getbootstrap.com/assets/icons/pencil.svg", title=string(T), debugger=nothing, kwargs...) where T
+"""
+    editor_app(resolve::Function; icon, title=nothing, debugger=nothing, kwargs...)
 
-    app = App() do session
+The `Bonito.App` behind [`editor`](@ref) and [`link_editor`](@ref).
+
+`resolve()` returns the `(value, save_function)` pair to edit and is called once **per
+page request**, not once when the route is registered. That is what lets `link_editor`
+bind a path permanently and still hand every open the value as of that moment; `editor`
+passes a `resolve` that closes over a fixed pair, so it behaves as it always has.
+
+`title=nothing` falls back to the name of the resolved value's type.
+"""
+function editor_app(resolve::Function; icon="https://icons.getbootstrap.com/assets/icons/pencil.svg", title=nothing, debugger=nothing, kwargs...)
+
+    return App() do session
+
+        value, save_function = resolve()
 
         # Build the form (and its widgets/Observables) fresh per session. Bonito
         # widgets carry mutable per-session state, so a form shared across sessions
@@ -1064,8 +1078,13 @@ function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, m
         form = make_form(state; save_function, kwargs...)
 
 
-        page(form; title, icon)
+        page(form; title = isnothing(title) ? string(typeof(value)) : title, icon)
     end
+end
+
+function editor(value::T; save_function::Union{SaveFunction, Nothing}=nothing, mode=vscode, server = nothing, path="/", icon="https://icons.getbootstrap.com/assets/icons/pencil.svg", title=string(T), debugger=nothing, kwargs...) where T
+
+    app = editor_app(() -> (value, save_function); icon, title, debugger, kwargs...)
 
     return run_app(app; mode, server, path)
 end
@@ -1107,31 +1126,33 @@ function viewer(value::T; mode=vscode, server = nothing, path="/", icon="https:/
     return run_app(app; mode, server, path)
 end
 
+"""
+    link_editor(label, server, path, onclick; target="_blank", kwargs...)
+
+A button that opens an editor at `path` in a new tab.
+
+`onclick()` returns the `(value, save_function)` pair to edit and is called **while the
+target page renders**, so the editor always reflects the state at the moment it is
+opened -- on the first click, on every click after it, and on a plain reload or revisit
+of the URL.
+
+Remaining keywords (`icon`, `title`, `class`, `container`, `buttons`) are forwarded to
+[`editor_app`](@ref).
+"""
 function link_editor(label::String, server::Bonito.Server, path::String, onclick::Function; target="_blank", kwargs...)
 
     button = SLButton(label; href=Bonito.HTTPServer.online_url(server, path), target)
-    loading = App() do session
-        DOM.div("loading...")
-    end
-    route!(server, path => loading)
-    on(button.value) do session
 
-        value, save_function = onclick()
-
-        editor(value;
-                save_function,
-                server,
-                mode=StructEditor.online,
-                path,
-                kwargs...)
-
-        # the "/edit" route now points at the real editor app; tell the
-        # tab that's still showing `loading` to reload and pick it up
-        loading_session = loading.session[]
-        if !isnothing(loading_session) && isready(loading_session; throw=false)
-            Bonito.evaljs(loading_session, js"window.location.reload()")
-        end
-    end
+    # `path` is bound once, to an app that resolves its value per page request. The
+    # earlier design instead routed a "loading..." placeholder here and swapped in a
+    # concrete `editor(value)` app from the button's click handler, which only held for
+    # the first click: after that `path` pointed at an editor pinned to the *previous*
+    # click's value. The browser follows the link the instant it is clicked, racing the
+    # click event travelling over the websocket, so the new tab rendered that stale
+    # editor -- and the "reload and pick up the new route" nudge was aimed at the
+    # placeholder session from the first click, which had long since navigated away.
+    # Resolving per request is re-entrant by construction and drops the race entirely.
+    route!(server, path => editor_app(onclick; kwargs...))
 
     return button
 end

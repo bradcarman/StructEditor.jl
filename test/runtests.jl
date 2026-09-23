@@ -342,4 +342,42 @@ include("utils.jl")
         @test viewer(TestAll()) isa Bonito.App
     end
 
+    @testset "link_editor is re-entrant" begin
+        # `link_editor` binds its path once, to an app that calls `onclick()` while the
+        # page renders. The regression it guards: an earlier version routed a
+        # placeholder and swapped in an `editor(value)` app from the click handler, so
+        # the path ended up pinned to the *first* click's value and every open after
+        # that served stale content.
+        #
+        # The source object is replaced rather than mutated, which is what callers
+        # actually do (JuliaSimPM's `update()` rebuilds its project list from scratch);
+        # a mutated-in-place object would look fresh even through a stale closure.
+        source = Ref(TestMutableChild("first"))
+        calls = Ref(0)
+        onclick = () -> (calls[] += 1; (source[], StructEditor.SaveFunction(; func = _ -> nothing)))
+
+        server = Bonito.Server("127.0.0.1", 0; verbose=-1)
+        try
+            button = StructEditor.link_editor("edit", server, "/edit", onclick; title="Link")
+            @test button isa SLButton
+
+            url = Bonito.HTTPServer.local_url(server, "/edit")
+            fetch_page() = String(Bonito.HTTP.get(url).body)
+
+            first_open = fetch_page()
+            @test occursin("first", first_open)
+            @test calls[] == 1
+
+            # stand in for whatever moves the state on between opens
+            source[] = TestMutableChild("second")
+
+            second_open = fetch_page()
+            @test occursin("second", second_open)   # was "first" before the fix
+            @test !occursin("first", second_open)
+            @test calls[] == 2
+        finally
+            close(server)
+        end
+    end
+
 end
