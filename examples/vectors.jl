@@ -69,6 +69,13 @@ function StructEditor.build_add(state::ApplicationState{Group}, ::Type{Member}, 
     return add_function
 end
 
+# here is how we keep the list sorted
+function StructEditor.change_callback(state::ApplicationState{Group}, ::Val{:people})
+    sort!(state.value[].people, by=x->x.age)
+    notify(state.value)
+end
+
+
 
 # create a debugger object to analyze the application state in the REPL
 debugger = Ref{ApplicationState}()

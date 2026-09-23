@@ -47,19 +47,11 @@ function StructEditor.make_control!(state::ApplicationState, ::Type{Union{Date, 
         end
     end
 
-    function getproperty_callback(x::Task, sname::Symbol)
 
-        if x.start == Specified
-            y.disabled[] = false
-            return getproperty(x, sname)
-        else
-            y.disabled[] = true
-            return nothing
-        end
-    end
+    StructEditor.bind_field!(state, sname, y.value, dirty; to_field, to_widget)
 
-
-    StructEditor.bind_field!(state, sname, y.value, dirty; to_field, to_widget, getproperty_callback)
+    # here we bind the disabled property to the `start` field, if Specified then enable
+    StructEditor.bind_field!(state, :start, y.disabled, identity; to_widget = x->x != Specified)
 
     return [y]
 end
