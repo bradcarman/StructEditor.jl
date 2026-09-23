@@ -82,3 +82,6 @@ url = editor(main;
         icon="https://icons.getbootstrap.com/assets/icons/list.svg", 
         title="List Editor")
 Bonito.HTTPServer.openurl(url)
+
+
+close(server)
