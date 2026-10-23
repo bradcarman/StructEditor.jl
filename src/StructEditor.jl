@@ -16,7 +16,7 @@ struct ApplicationState{T}
 end
 
 ApplicationState(v::Observable) = ApplicationState(v, Dict())
-ApplicationState(x::T) where T = ApplicationState(Observable(v))
+ApplicationState(x::T) where T = ApplicationState(Observable(x))
 
 StructUtils.structlike(::StructUtils.StructStyle, ::Type{Markdown.MD}) = false
 StructUtils.lower(md::Markdown.MD) = Markdown.plain(md)
@@ -128,7 +128,8 @@ function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable,
                      to_widget=identity,
                      valid=(x -> true),
                      same=(field, wval) -> isequal(to_widget(field), wval),
-                     getproperty_callback = getproperty
+                     getproperty_callback = getproperty,
+                     initialize = false
                      )
 
     value = state.value
@@ -177,6 +178,12 @@ function bind_field!(state::ApplicationState, sname::Symbol, wvalue::Observable,
 
         # println("::on(value) field=$field wvalue[]=$(wvalue[])")
         same(field, wvalue[]) || (wvalue[] = to_widget(field))
+    end
+
+    if initialize 
+        v = value[]
+        field = getproperty(v, sname)
+        wvalue[] = to_widget(field)
     end
 
     return wvalue
@@ -556,6 +563,7 @@ end
 function iscomposite(T::Type)
     n = 0
     try
+        @show T
         n = length(fieldnames(T))
     catch err
         if err isa MethodError
