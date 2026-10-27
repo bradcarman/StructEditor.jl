@@ -563,7 +563,6 @@ end
 function iscomposite(T::Type)
     n = 0
     try
-        @show T
         n = length(fieldnames(T))
     catch err
         if err isa MethodError
@@ -753,9 +752,12 @@ make_view!(value::Observable, ::Val) = nothing
 
 # background-color: var(--sl-color-neutral-50);
 skip_field(parent::Type, child::Val) = false
+# a cell fills its container's width exactly: `border-box` keeps the padding and border inside the
+# width, and the width leaves room for the side margins
 cell(x...) = DOM.div(x...; 
                     style="""
-                        width:100%; 
+                        box-sizing: border-box;
+                        width: calc(100% - 4px); 
                         border-left: solid 4px var(--sl-color-neutral-200); 
                         margin: 20px 2px;
                         padding: 4px;
@@ -763,7 +765,8 @@ cell(x...) = DOM.div(x...;
                     )
 cell_no_border(x...) = DOM.div(x...; 
                     style="""
-                        width:100%; 
+                        box-sizing: border-box;
+                        width: calc(100% - 4px); 
                         margin: 2px;
                         padding: 4px;
                     """
