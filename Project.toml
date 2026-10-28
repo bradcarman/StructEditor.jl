@@ -1,6 +1,6 @@
 name = "StructEditor"
 uuid = "f41bf64d-372c-4047-8f65-4cd74346a5da"
-version = "0.7.12"
+version = "0.7.11"
 authors = ["Brad Carman <bradleygcarman@outlook.com>"]
 
 [workspace]
@@ -23,7 +23,7 @@ JSON = "1.4.0"
 Markdown = "1.11.0"
 ShoelaceWidgets = "0.12.0"
 StructUtils = "2.7.1"
-julia = "1"
+julia = "1.11"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
